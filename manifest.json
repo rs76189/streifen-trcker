@@ -1,0 +1,17 @@
+{
+  "name": "Streifen – Tracker",
+  "short_name": "Streifen",
+  "description": "Produktivität, Sport und Gewohnheiten mit Streaks – plus Lern-Timer, Lernplan, Trainingstagebuch und Trainingsplan.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#E7E9E2",
+  "theme_color": "#E7E9E2",
+  "orientation": "portrait",
+  "lang": "de",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

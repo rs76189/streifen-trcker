@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E7E9E2">
+<title>Streifen – Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --paper:#E7E9E2;
+    --surface:#F8F7F2;
+    --surface-raised:#FFFFFF;
+    --ink:#23261F;
+    --ink-soft:#6B6F60;
+    --ink-faint:#9A9C8E;
+    --line:#CFCDBF;
+    --accent-prod:#2B4A5E;
+    --accent-sport:#B15A24;
+    --accent-habit:#5B6B4F;
+    --accent-neutral:#6B6656;
+    --danger:#8C3B2E;
+    --radius:7px;
+    --font-serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Noto Serif', serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', 'Droid Sans Mono', Consolas, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-sans);
+    -webkit-tap-highlight-color:transparent;
+    min-height:100dvh;
+  }
+  button{font-family:inherit;color:inherit;}
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+  /* ---------- header ---------- */
+  .topbar{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    padding:22px 20px 14px;
+    border-bottom:2px dashed var(--line);
+  }
+  .wordmark{
+    font-family:var(--font-serif);
+    font-size:1.55rem;
+    letter-spacing:0.01em;
+  }
+  .today-date{
+    font-family:var(--font-mono);
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    text-align:right;
+  }
+  /* ---------- main / view ---------- */
+  #view{
+    flex:1;
+    padding:18px 20px 100px;
+  }
+  section{margin-bottom:26px;}
+  section:last-child{margin-bottom:0;}
+  /* ---------- hero (Heute / Timer) ---------- */
+  .hero{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 18px 18px;
+    text-align:center;
+  }
+  .hero-number{
+    font-family:var(--font-mono);
+    font-size:3.4rem;
+    font-variant-numeric:tabular-nums;
+    line-height:1;
+    font-weight:600;
+  }
+  .hero-label{
+    color:var(--ink-soft);
+    font-size:0.88rem;
+    margin-top:6px;
+  }
+  .week-strip{
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    margin-top:16px;
+  }
+  .dot{
+    width:11px;height:11px;border-radius:50%;
+    border:1.5px solid var(--ink-faint);
+    background:transparent;
+    display:inline-block;
+  }
+  .dot.filled{
+    background:var(--accent-neutral);
+    border-color:var(--accent-neutral);
+  }
+  /* ---------- category blocks ---------- */
+  .cat-title{
+    font-size:0.98rem;
+    font-weight:600;
+    margin:0 0 10px;
+    padding-left:11px;
+    border-left:4px solid var(--catcolor,var(--ink));
+    line-height:1.2;
+  }
+  .empty-hint{
+    color:var(--ink-soft);
+    font-size:0.9rem;
+    padding:2px 0 2px 15px;
+  }
+  .link-btn{
+    background:none;border:none;padding:0;
+    color:var(--ink);
+    text-decoration:underline;
+    text-underline-offset:2px;
+    cursor:pointer;
+    font-size:inherit;
+  }
+  .link-btn.danger{color:var(--danger);}
+  .tracker-list{list-style:none;margin:0;padding:0;}
+  .tracker-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:11px 4px 11px 11px;
+    border-bottom:1px solid var(--line);
+  }
+  .tracker-row:last-child{border-bottom:none;}
+  .tracker-name{flex:1;font-size:0.98rem;}
+  .tracker-streak{
+    font-family:var(--font-mono);
+    font-size:0.92rem;
+    color:var(--ink-soft);
+    min-width:1.6em;
+    text-align:right;
+  }
+  .check{
+    width:26px;height:26px;
+    border-radius:50%;
+    border:2px solid var(--catcolor,var(--ink-faint));
+    background:transparent;
+    flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    transition:background-color .15s ease, transform .15s ease;
+    color:transparent;
+    font-size:0.85rem;
+    padding:0;
+  }
+  .check:active{transform:scale(0.88);}
+  .check.done{
+    background:var(--catcolor,var(--ink));
+    color:var(--surface-raised);
+  }
+  .check.pop{animation:pop .28s ease;}
+  @keyframes pop{
+    0%{transform:scale(1);}
+    40%{transform:scale(1.22);}
+    100%{transform:scale(1);}
+  }
+  .check-native{width:20px;height:20px;accent-color:var(--ink);flex-shrink:0;}
+  /* ---------- chips ---------- */
+  .chips-row{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:4px;
+    margin-bottom:18px !important;
+    -ms-overflow-style:none;
+    scrollbar-width:none;
+  }
+  .chips-row::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:none;
+    background:var(--surface);
+    border:1.5px solid var(--line);
+    border-radius:999px;
+    padding:7px 14px;
+    font-size:0.85rem;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .chip.active{
+    border-color:var(--catcolor,var(--ink));
+    background:var(--catcolor,var(--ink));
+    color:var(--surface-raised);
+  }
+  /* ---------- wide buttons (Timer) ---------- */
+  .btn-wide{
+    flex:1;
+    border:1px solid var(--ink);
+    background:var(--surface-raised);
+    color:var(--ink);
+    border-radius:var(--radius);
+    padding:11px 14px;
+    font-size:0.92rem;
+    cursor:pointer;
+  }
+  .btn-wide.primary{background:var(--ink); color:var(--surface-raised);}
+  .btn-wide:disabled{opacity:0.4; cursor:not-allowed;}
+  .text-input{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:9px 11px;
+    font-size:0.92rem;
+    background:var(--surface-raised);
+    color:var(--ink);
+  }
+  .text-input:focus{outline:2px solid var(--ink); outline-offset:1px;}
+  /* ---------- add-form-col ---------- */
+  .add-form-col{display:flex; flex-direction:column; gap:8px;}
+  .add-form-col input{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:9px 11px;
+    font-size:0.92rem;
+    background:var(--surface-raised);
+    color:var(--ink);
+  }
+  .add-form-col input:focus{outline:2px solid var(--ink); outline-offset:1px;}
+  .add-form-col button{
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:var(--surface-raised);
+    border-radius:var(--radius);
+    padding:9px 14px;
+    font-size:0.88rem;
+    cursor:pointer;
+  }
+  .stat-num-sm{font-size:1.05rem !important;}
+  /* ---------- calendar ---------- */
+  .cal-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px !important;
+  }
+  .cal-title{font-weight:600;font-size:1.02rem;}
+  .nav-btn{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:50%;
+    width:34px;height:34px;
+    font-size:1.1rem;
+    cursor:pointer;
+    line-height:1;
+  }
+  .stat-row{
+    display:flex;
+    gap:12px;
+    margin-bottom:18px !important;
+  }
+  .stat{
+    flex:1;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 6px;
+    text-align:center;
+  }
+  .stat-num{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:1.5rem;
+    font-weight:600;
+  }
+  .stat-label{
+    display:block;
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+  .cal-grid{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:5px;
+  }
+  .wd{
+    text-align:center;
+    font-size:0.72rem;
+    color:var(--ink-faint);
+    font-family:var(--font-mono);
+    padding-bottom:4px;
+  }
+  .day-cell{
+    aspect-ratio:1;
+    border-radius:5px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    font-family:var(--font-mono);
+    font-size:0.82rem;
+    color:var(--ink-soft);
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;
+  }
+  .day-cell.out{opacity:0.32;}
+  .day-cell.future{opacity:0.32;cursor:not-allowed;}
+  .day-cell.today{border-color:var(--ink);border-width:2px;}
+  .day-cell.done{
+    background:var(--catcolor,var(--ink));
+    color:var(--surface-raised);
+    border-color:var(--catcolor,var(--ink));
+  }
+  .day-cell.readonly{cursor:default;}
+  /* ---------- year heatmap ---------- */
+  .year-scroll{overflow-x:auto; padding-bottom:6px;}
+  .year-inner{display:inline-flex; gap:3px;}
+  .year-week{display:flex; flex-direction:column; gap:3px; position:relative;}
+  .year-month-label{
+    position:absolute; top:-18px; left:0;
+    font-size:0.68rem; font-family:var(--font-mono); color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .year-weeks-wrap{margin-top:20px;}
+  .heat-cell{width:12px;height:12px;border-radius:2px;background:var(--surface);border:1px solid var(--line);}
+  .heat-cell.pad{border:none;background:transparent;}
+  .legend{display:flex;align-items:center;gap:5px;margin-top:12px;font-size:0.72rem;color:var(--ink-soft);}
+  .legend .heat-cell{width:10px;height:10px;}
+  /* ---------- manage ---------- */
+  .manage-intro p{font-size:0.9rem; color:var(--ink-soft); margin:0;}
+  .icon-btn{
+    background:none;border:none;
+    width:30px;height:30px;
+    border-radius:50%;
+    cursor:pointer;
+    font-size:0.95rem;
+    color:var(--ink-soft);
+  }
+  .icon-btn.danger{color:var(--danger);}
+  .icon-btn:active{background:var(--surface);}
+  .add-form{display:flex; gap:8px;}
+  .add-form input{
+    flex:1;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:9px 11px;
+    font-size:0.92rem;
+    background:var(--surface-raised);
+    color:var(--ink);
+  }
+  .add-form input:focus{outline:2px solid var(--ink); outline-offset:1px;}
+  .add-form button{
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:var(--surface-raised);
+    border-radius:var(--radius);
+    padding:9px 14px;
+    font-size:0.88rem;
+    cursor:pointer;
+  }
+  .backup-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}
+  .action-btn{
+    border:1px solid var(--ink);
+    background:var(--surface-raised);
+    color:var(--ink);
+    border-radius:var(--radius);
+    padding:9px 14px;
+    font-size:0.88rem;
+    cursor:pointer;
+  }
+  .action-btn.primary{background:var(--ink);color:var(--surface-raised);}
+  .danger-zone{text-align:center;padding-top:6px;}
+  /* ---------- Sport-Tagebuch ---------- */
+  .session-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    margin-bottom:12px;
+    overflow:hidden;
+  }
+  .session-header{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    padding:12px 14px; cursor:pointer;
+  }
+  .session-date{font-family:var(--font-mono); font-weight:600; font-size:0.92rem;}
+  .session-note{color:var(--ink-soft); font-size:0.82rem; margin-top:2px;}
+  .session-summary{color:var(--ink-soft); font-size:0.85rem; margin-top:4px;}
+  .session-body{padding:0 14px 14px;}
+  .exercise-row{border-top:1px solid var(--line); padding:10px 0 6px;}
+  .exercise-header{display:flex; align-items:center; justify-content:space-between;}
+  .exercise-name{font-weight:600; font-size:0.92rem;}
+  .set-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:4px 0; font-size:0.85rem; color:var(--ink-soft);
+  }
+  .set-add-form{display:flex; gap:6px; margin-top:6px;}
+  .set-add-form input{
+    width:64px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:7px 8px;
+    font-size:0.85rem;
+    background:var(--surface-raised);
+    color:var(--ink);
+  }
+  .set-add-form button{
+    border:1px solid var(--ink);
+    background:var(--surface-raised);
+    color:var(--ink);
+    border-radius:var(--radius);
+    padding:0 12px;
+    font-size:0.92rem;
+    cursor:pointer;
+  }
+  /* ---------- Trainingsplan ---------- */
+  .plan-detail-header{display:flex; align-items:center; gap:10px; margin-bottom:14px !important;}
+  .plan-detail-title{font-weight:600; font-size:1.05rem;}
+  .plan-exercise-form{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+  .plan-exercise-form input[name="name"]{flex:1; min-width:90px;}
+  .plan-exercise-form input[name="sets"], .plan-exercise-form input[name="reps"]{width:60px;}
+  .plan-exercise-form input{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:7px 8px;
+    font-size:0.85rem;
+    background:var(--surface-raised);
+    color:var(--ink);
+  }
+  .plan-exercise-form button{
+    border:1px solid var(--ink);
+    background:var(--surface-raised);
+    color:var(--ink);
+    border-radius:var(--radius);
+    padding:0 12px;
+    font-size:0.92rem;
+    cursor:pointer;
+  }
+  /* ---------- tabbar ---------- */
+  .tabbar{
+    position:fixed;
+    bottom:0;left:50%;
+    transform:translateX(-50%);
+    width:100%;
+    max-width:480px;
+    display:flex;
+    background:var(--surface-raised);
+    border-top:1px solid var(--line);
+    padding:8px 4px calc(8px + env(safe-area-inset-bottom));
+  }
+  .tab{
+    flex:1;
+    background:none;
+    border:none;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:3px;
+    padding:6px 1px;
+    cursor:pointer;
+    color:var(--ink-faint);
+    font-size:0.63rem;
+  }
+  .tab svg{width:20px;height:20px;stroke:var(--ink-faint);fill:none;stroke-width:1.6;}
+  .tab.active{color:var(--ink);}
+  .tab.active svg{stroke:var(--ink);}
+  @media (prefers-reduced-motion:reduce){
+    .check,.check.pop{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="wordmark">Streifen</div>
+    <div class="today-date" id="todayDateLabel"></div>
+  </header>
+  <main id="view"></main>
+  <nav class="tabbar">
+    <button class="tab" data-tab="heute" aria-label="Heute">
+      <svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>
+      Heute
+    </button>
+    <button class="tab" data-tab="lernen" aria-label="Lernen">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9.5 3.5h5"/></svg>
+      Lernen
+    </button>
+    <button class="tab" data-tab="sport" aria-label="Sport">
+      <svg viewBox="0 0 24 24"><path d="M4 9v6M2.3 10.5v3M20 9v6M21.7 10.5v3M6.5 12h11"/></svg>
+      Sport
+    </button>
+    <button class="tab" data-tab="verlauf" aria-label="Verlauf">
+      <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>
+      Verlauf
+    </button>
+    <button class="tab" data-tab="verwalten" aria-label="Verwalten">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="1.8" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1.8" fill="currentColor" stroke="none"/><circle cx="11" cy="18" r="1.8" fill="currentColor" stroke="none"/></svg>
+      Verwalten
+    </button>
+  </nav>
+</div>
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "streifen_data_v1";
+  var TIMER_KEY = "streifen_timer_v1";
+
+  var CATEGORIES = {
+    produktivitaet: { label:"Produktivität", color:"var(--accent-prod)" },
+    sport:          { label:"Sport",          color:"var(--accent-sport)" },
+    gewohnheiten:   { label:"Gewohnheiten",   color:"var(--accent-habit)" }
+  };
+
+  var WEEKDAYS_SHORT = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+  var WEEKDAYS_LONG  = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+  var MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+  var MONTHS_SHORT = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+
+  /* ---------------- persistence: Haupt-Daten ---------------- */
+
+  function defaultData(){
+    return {
+      trackers:{
+        t1:{ id:"t1", name:"Deep Work", category:"produktivitaet" },
+        t2:{ id:"t2", name:"Laufen", category:"sport" },
+        t3:{ id:"t3", name:"Meditieren", category:"gewohnheiten" }
+      },
+      entries:{ t1:{}, t2:{}, t3:{} },
+      studySessions: [],
+      studyPlan: [],
+      workoutSessions: [],
+      trainingPlans: []
+    };
+  }
+
+  function loadData(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw){
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.trackers && parsed.entries){
+          if (!Array.isArray(parsed.studySessions)) parsed.studySessions = [];
+          if (!Array.isArray(parsed.studyPlan)) parsed.studyPlan = [];
+          if (!Array.isArray(parsed.workoutSessions)) parsed.workoutSessions = [];
+          if (!Array.isArray(parsed.trainingPlans)) parsed.trainingPlans = [];
+          return parsed;
+        }
+      }
+    }catch(e){ console.error("Konnte Daten nicht laden:", e); }
+    return defaultData();
+  }
+
+  var data = loadData();
+
+  function save(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+    catch(e){ console.error("Konnte Daten nicht speichern:", e); }
+  }
+
+  /* ---------------- persistence: Timer ---------------- */
+
+  function loadTimer(){
+    try{
+      var raw = localStorage.getItem(TIMER_KEY);
+      if (raw) return JSON.parse(raw);
+    }catch(e){}
+    return { running:false, startMillis:0, accumulated:0, targetMinutes:25 };
+  }
+  var timerState = loadTimer();
+  function saveTimer(){
+    try{ localStorage.setItem(TIMER_KEY, JSON.stringify(timerState)); }catch(e){}
+  }
+
+  function currentElapsedSeconds(){
+    var elapsed = timerState.accumulated;
+    if (timerState.running) elapsed += Math.floor((Date.now() - timerState.startMillis) / 1000);
+    return elapsed;
+  }
+  function timerStart(){
+    if (!timerState.running){
+      timerState.running = true;
+      timerState.startMillis = Date.now();
+      saveTimer();
+    }
+  }
+  function timerPause(){
+    if (timerState.running){
+      timerState.accumulated = currentElapsedSeconds();
+      timerState.running = false;
+      saveTimer();
+    }
+  }
+  function timerFinish(note){
+    var elapsed = currentElapsedSeconds();
+    if (elapsed > 0){
+      data.studySessions.push({ id:makeId(), date:todayStr(), durationSeconds:elapsed, note: note || null });
+      save();
+    }
+    timerState = { running:false, startMillis:0, accumulated:0, targetMinutes: timerState.targetMinutes };
+    saveTimer();
+  }
+  function timerSetTarget(m){ timerState.targetMinutes = m; saveTimer(); }
+
+  function studyTotalSeconds(){
+    return data.studySessions.reduce(function(s,x){ return s + x.durationSeconds; }, 0);
+  }
+  function studyTodaySeconds(){
+    var t = todayStr();
+    return data.studySessions.filter(function(s){ return s.date===t; }).reduce(function(s,x){ return s + x.durationSeconds; }, 0);
+  }
+
+  function formatDuration(total){
+    var h = Math.floor(total/3600);
+    var m = Math.floor((total%3600)/60);
+    var s = total%60;
+    function p2(n){ return (n<10?"0":"")+n; }
+    return h>0 ? (h+":"+p2(m)+":"+p2(s)) : (p2(m)+":"+p2(s));
+  }
+  function formatDurationLong(total){
+    var h = Math.floor(total/3600);
+    var m = Math.floor((total%3600)/60);
+    return h>0 ? (h+" Std. "+m+" Min.") : (m+" Min.");
+  }
+
+  /* ---------------- date helpers ---------------- */
+
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function fmt(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
+  function todayStr(){ return fmt(new Date()); }
+  function addDays(dateStr, n){
+    var parts = dateStr.split("-").map(Number);
+    var d = new Date(parts[0], parts[1]-1, parts[2]);
+    d.setDate(d.getDate()+n);
+    return fmt(d);
+  }
+  function formatHeaderDate(){
+    var d = new Date();
+    return WEEKDAYS_LONG[d.getDay()]+", "+d.getDate()+". "+MONTHS[d.getMonth()];
+  }
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+  function makeId(){
+    return "id_"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  }
+
+  /* ---------------- tracker / streak logic ---------------- */
+
+  function allTrackers(){ return Object.keys(data.trackers).map(function(k){ return data.trackers[k]; }); }
+  function trackersByCategory(cat){ return allTrackers().filter(function(t){ return t.category===cat; }); }
+  function isDone(trackerId, dateStr){ return !!(data.entries[trackerId] && data.entries[trackerId][dateStr]); }
+
+  function toggleEntry(trackerId, dateStr){
+    if (!data.entries[trackerId]) data.entries[trackerId] = {};
+    if (data.entries[trackerId][dateStr]) delete data.entries[trackerId][dateStr];
+    else data.entries[trackerId][dateStr] = true;
+    save();
+  }
+
+  function currentStreakFromSet(set, ref){
+    ref = ref || todayStr();
+    var cursor = ref;
+    if (!set.has(cursor)) cursor = addDays(cursor, -1);
+    var streak = 0;
+    while (set.has(cursor)){ streak++; cursor = addDays(cursor, -1); }
+    return streak;
+  }
+  function bestStreakFromSet(set){
+    var dates = Array.from(set).sort();
+    var best=0, run=0, prev=null;
+    for (var i=0;i<dates.length;i++){
+      var d = dates[i];
+      if (prev && addDays(prev,1)===d) run++; else run=1;
+      if (run>best) best=run;
+      prev = d;
+    }
+    return best;
+  }
+  function trackerDoneSet(trackerId){
+    var e = data.entries[trackerId] || {};
+    var set = new Set();
+    for (var d in e){ if (e[d]) set.add(d); }
+    return set;
+  }
+  function currentStreak(trackerId){ return currentStreakFromSet(trackerDoneSet(trackerId)); }
+  function bestStreak(trackerId){ return bestStreakFromSet(trackerDoneSet(trackerId)); }
+  function combinedDoneSet(){
+    var set = new Set();
+    for (var tid in data.entries){
+      var e = data.entries[tid];
+      for (var d in e){ if (e[d]) set.add(d); }
+    }
+    return set;
+  }
+
+  function levelForDate(dateStr, selected){
+    if (selected==="__all__"){
+      var total = allTrackers().length || 1;
+      var count = 0;
+      for (var tid in data.entries){ if (data.entries[tid][dateStr]) count++; }
+      if (count===0) return 0;
+      var ratio = count/total;
+      if (ratio>=1) return 4;
+      if (ratio>=0.66) return 3;
+      if (ratio>=0.33) return 2;
+      return 1;
+    }
+    return isDone(selected, dateStr) ? 4 : 0;
+  }
+
+  /* ---------------- month grid / year weeks ---------------- */
+
+  function buildMonthGrid(year, month){
+    var first = new Date(year, month, 1);
+    var last  = new Date(year, month+1, 0);
+    var firstWeekday = (first.getDay()+6)%7;
+    var lastWeekday  = (last.getDay()+6)%7;
+    var start = new Date(year, month, 1-firstWeekday);
+    var end   = new Date(year, month, last.getDate()+(6-lastWeekday));
+    var today = todayStr();
+    var cells = [];
+    var cursor = new Date(start);
+    while (cursor <= end){
+      var dateStr = fmt(cursor);
+      cells.push({
+        date: dateStr,
+        day: cursor.getDate(),
+        inMonth: cursor.getMonth()===month,
+        isToday: dateStr===today,
+        isFuture: dateStr>today
+      });
+      cursor.setDate(cursor.getDate()+1);
+    }
+    return cells;
+  }
+
+  function buildYearWeeks(year){
+    var jan1 = new Date(year,0,1);
+    var dec31 = new Date(year,11,31);
+    var firstWeekday = (jan1.getDay()+6)%7;
+    var start = new Date(year,0,1-firstWeekday);
+    var weeks = [];
+    var cursor = new Date(start);
+    while (cursor <= dec31){
+      var week = [];
+      for (var i=0;i<7;i++){
+        week.push(new Date(cursor));
+        cursor.setDate(cursor.getDate()+1);
+      }
+      weeks.push(week);
+    }
+    return weeks;
+  }
+
+  /* ---------------- state ---------------- */
+
+  var activeTab = "heute";
+  var lernenSubTab = "timer";
+  var sportSubTab = "tagebuch";
+  var selectedPlanId = null;
+  var expandedSessions = {};
+  var verlaufTrackerId = "__all__";
+  var verlaufMode = "monat";
+  var calState = { year:new Date().getFullYear(), month:new Date().getMonth() };
+  var yearState = { year:new Date().getFullYear() };
+  var tickTimer = null;
+
+  function resolveColor(trackerId){
+    if (trackerId==="__all__") return "var(--accent-neutral)";
+    var t = data.trackers[trackerId];
+    return t ? CATEGORIES[t.category].color : "var(--accent-neutral)";
+  }
+
+  function trackerChipsHtml(selectedId, attrName){
+    var html = '<button class="chip'+(selectedId==="__all__"?" active":"")+'" data-'+attrName+'="__all__" style="--catcolor:var(--accent-neutral)">Gesamt</button>';
+    allTrackers().forEach(function(t){
+      var color = CATEGORIES[t.category].color;
+      html += '<button class="chip'+(selectedId===t.id?" active":"")+'" data-'+attrName+'="'+t.id+'" style="--catcolor:'+color+'">'+escapeHtml(t.name)+'</button>';
+    });
+    return html;
+  }
+
+  /* ---------------- render: Heute ---------------- */
+
+  function renderWeekStrip(set){
+    var today = todayStr();
+    var html = "";
+    for (var i=6;i>=0;i--){
+      var d = addDays(today,-i);
+      html += '<span class="dot'+(set.has(d)?' filled':'')+'"></span>';
+    }
+    return html;
+  }
+
+  function renderHeute(){
+    var today = todayStr();
+    var set = combinedDoneSet();
+    var streak = currentStreakFromSet(set, today);
+    var html = ''+
+      '<section class="hero">'+
+        '<div class="hero-number">'+streak+'</div>'+
+        '<div class="hero-label">'+(streak===1?'Tag in Folge aktiv':'Tage in Folge aktiv')+'</div>'+
+        '<div class="week-strip">'+renderWeekStrip(set)+'</div>'+
+      '</section>';
+
+    Object.keys(CATEGORIES).forEach(function(catKey){
+      var cat = CATEGORIES[catKey];
+      var trackers = trackersByCategory(catKey);
+      html += '<section class="cat-block">'+
+        '<h2 class="cat-title" style="--catcolor:'+cat.color+'">'+cat.label+'</h2>';
+      if (trackers.length===0){
+        html += '<p class="empty-hint">Noch kein Tracker hier. <button class="link-btn" data-goto="verwalten">Jetzt anlegen</button></p>';
+      } else {
+        html += '<ul class="tracker-list">';
+        trackers.forEach(function(t){
+          var done = isDone(t.id, today);
+          var s = currentStreak(t.id);
+          html += '<li class="tracker-row">'+
+            '<button class="check'+(done?' done':'')+'" style="--catcolor:'+cat.color+'" data-toggle="'+t.id+'" data-date="'+today+'" aria-pressed="'+done+'" aria-label="'+escapeHtml(t.name)+' heute">'+(done?'✓':'')+'</button>'+
+            '<span class="tracker-name">'+escapeHtml(t.name)+'</span>'+
+            '<span class="tracker-streak">'+s+'</span>'+
+          '</li>';
+        });
+        html += '</ul>';
+      }
+      html += '</section>';
+    });
+    return html;
+  }
+
+  /* ---------------- render: Lernen ---------------- */
+
+  function renderLernen(){
+    var html = '<section class="chips-row">'+
+      '<button class="chip'+(lernenSubTab==="timer"?" active":"")+'" data-lernen-tab="timer">Timer</button>'+
+      '<button class="chip'+(lernenSubTab==="plan"?" active":"")+'" data-lernen-tab="plan">Lernplan</button>'+
+    '</section>';
+    html += lernenSubTab==="timer" ? renderTimerTab() : renderStudyPlanTab();
+    return html;
+  }
+
+  function renderTimerTab(){
+    var elapsed = currentElapsedSeconds();
+    var target = timerState.targetMinutes;
+    var chips = [15,25,45,60].map(function(m){
+      return '<button class="chip'+(target===m?" active":"")+'" data-timer-target="'+m+'">'+m+'m</button>';
+    }).join("");
+    return ''+
+      '<section class="hero">'+
+        '<div class="hero-number" id="timerDisplay">'+formatDuration(elapsed)+'</div>'+
+        '<div class="hero-label">Ziel: '+target+' Minuten</div>'+
+        '<div class="chips-row" style="justify-content:center; margin-top:14px !important; margin-bottom:0 !important;">'+chips+'</div>'+
+      '</section>'+
+      '<section style="display:flex; gap:10px;">'+
+        (timerState.running
+          ? '<button class="btn-wide" data-timer-pause>Pause</button>'
+          : '<button class="btn-wide" data-timer-start>'+(elapsed>0?"Weiter":"Start")+'</button>')+
+        '<button class="btn-wide primary" data-timer-finish'+((!timerState.running && timerState.accumulated===0)?" disabled":"")+'>Fertig &amp; speichern</button>'+
+      '</section>'+
+      '<section>'+
+        '<input type="text" id="timerNoteInput" class="text-input" placeholder="Notiz (optional), z. B. Fach">'+
+      '</section>'+
+      '<section class="stat-row">'+
+        '<div class="stat"><span class="stat-num stat-num-sm">'+formatDurationLong(studyTodaySeconds())+'</span><span class="stat-label">Heute</span></div>'+
+        '<div class="stat"><span class="stat-num stat-num-sm">'+formatDurationLong(studyTotalSeconds())+'</span><span class="stat-label">Insgesamt</span></div>'+
+      '</section>';
+  }
+
+  function renderStudyPlanTab(){
+    var html = '<section>'+
+      '<form class="add-form-col" id="studyPlanForm">'+
+        '<input type="text" name="title" placeholder="Was steht an?" maxlength="60" required>'+
+        '<input type="text" name="subject" placeholder="Fach (optional)" maxlength="40">'+
+        '<button type="submit">Hinzufügen</button>'+
+      '</form>'+
+    '</section><section>';
+    if (data.studyPlan.length===0){
+      html += '<p class="empty-hint">Noch nichts im Lernplan.</p>';
+    } else {
+      html += '<ul class="tracker-list">';
+      data.studyPlan.forEach(function(item){
+        html += '<li class="tracker-row">'+
+          '<input type="checkbox" class="check-native" data-study-plan-toggle="'+item.id+'"'+(item.done?" checked":"")+'>'+
+          '<span class="tracker-name"'+(item.done?' style="color:var(--ink-faint);text-decoration:line-through;"':'')+'>'+
+            escapeHtml(item.title)+
+            (item.subject ? ' <span style="color:var(--ink-soft);font-size:0.85em;">· '+escapeHtml(item.subject)+'</span>' : '')+
+          '</span>'+
+          '<button class="icon-btn danger" data-study-plan-delete="'+item.id+'">✕</button>'+
+        '</li>';
+      });
+      html += '</ul>';
+    }
+    html += '</section>';
+    return html;
+  }
+
+  /* ---------------- render: Sport ---------------- */
+
+  function renderSport(){
+    var html = '<section class="chips-row">'+
+      '<button class="chip'+(sportSubTab==="tagebuch"?" active":"")+'" data-sport-tab="tagebuch">Tagebuch</button>'+
+      '<button class="chip'+(sportSubTab==="plan"?" active":"")+'" data-sport-tab="plan">Trainingsplan</button>'+
+    '</section>';
+    html += sportSubTab==="tagebuch" ? renderTagebuch() : renderTrainingsplanTab();
+    return html;
+  }
+
+  function renderTagebuch(){
+    var html = '<section>'+
+      '<form class="add-form-col" id="newWorkoutForm">'+
+        '<input type="text" name="note" placeholder="Notiz für neues Training (optional)" maxlength="60">'+
+        '<button type="submit">Neues Training heute starten</button>'+
+      '</form>'+
+    '</section>';
+    if (data.workoutSessions.length===0){
+      html += '<p class="empty-hint">Noch keine Trainings erfasst.</p>';
+    } else {
+      var sorted = data.workoutSessions.slice().sort(function(a,b){
+        if (a.date!==b.date) return a.date<b.date ? 1 : -1;
+        return a.id<b.id ? 1 : -1;
+      });
+      sorted.forEach(function(session){ html += renderSessionCard(session); });
+    }
+    return html;
+  }
+
+  function renderSessionCard(session){
+    var expanded = !!expandedSessions[session.id];
+    var summary = session.exercises.length===0 ? "Noch keine Übungen" :
+      session.exercises.map(function(e){ return escapeHtml(e.name); }).join(", ");
+    var html = '<div class="session-card">'+
+      '<div class="session-header" data-session-toggle="'+session.id+'">'+
+        '<div>'+
+          '<div class="session-date">'+session.date+'</div>'+
+          (session.note ? '<div class="session-note">'+escapeHtml(session.note)+'</div>' : '')+
+          '<div class="session-summary">'+summary+'</div>'+
+        '</div>'+
+        '<button class="icon-btn danger" data-session-delete="'+session.id+'">✕</button>'+
+      '</div>';
+    if (expanded){
+      html += '<div class="session-body">';
+      session.exercises.forEach(function(ex){ html += renderExerciseRow(session.id, ex); });
+      html += '<form class="add-form" data-add-exercise="'+session.id+'">'+
+        '<input type="text" name="name" placeholder="Übung, z. B. Bankdrücken" maxlength="40" required>'+
+        '<button type="submit">+</button>'+
+      '</form>';
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderExerciseRow(sessionId, ex){
+    var html = '<div class="exercise-row">'+
+      '<div class="exercise-header">'+
+        '<span class="exercise-name">'+escapeHtml(ex.name)+'</span>'+
+        '<button class="icon-btn danger" data-exercise-delete="'+sessionId+'|'+ex.id+'" style="width:24px;height:24px;">✕</button>'+
+      '</div>';
+    ex.sets.forEach(function(s){
+      html += '<div class="set-row">'+
+        '<span>Satz '+s.setNumber+': '+s.weightKg+' kg × '+s.reps+'</span>'+
+        '<button class="icon-btn danger" data-set-delete="'+sessionId+'|'+ex.id+'|'+s.id+'" style="width:22px;height:22px;">✕</button>'+
+      '</div>';
+    });
+    html += '<form class="set-add-form" data-add-set="'+sessionId+'|'+ex.id+'">'+
+      '<input type="number" step="0.5" name="weight" placeholder="kg" required>'+
+      '<input type="number" step="1" name="reps" placeholder="Wdh." required>'+
+      '<button type="submit">+</button>'+
+    '</form>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderTrainingsplanTab(){
+    if (!selectedPlanId){
+      var html = '<form class="add-form-col" id="newPlanForm">'+
+        '<input type="text" name="name" placeholder="Neuer Plan, z. B. Push/Pull/Legs" maxlength="40" required>'+
+        '<button type="submit">Plan anlegen</button>'+
+      '</form>';
+      if (data.trainingPlans.length===0){
+        html += '<p class="empty-hint" style="margin-top:14px;">Noch kein Trainingsplan angelegt.</p>';
+      } else {
+        html += '<ul class="tracker-list" style="margin-top:14px;">';
+        data.trainingPlans.forEach(function(plan){
+          html += '<li class="tracker-row" data-training-plan-open="'+plan.id+'" style="cursor:pointer;">'+
+            '<span class="tracker-name">'+escapeHtml(plan.name)+'</span>'+
+            '<button class="icon-btn danger" data-training-plan-delete="'+plan.id+'">✕</button>'+
+          '</li>';
+        });
+        html += '</ul>';
+      }
+      return html;
+    }
+    var plan = data.trainingPlans.find(function(p){ return p.id===selectedPlanId; });
+    if (!plan){ selectedPlanId=null; return renderTrainingsplanTab(); }
+    var html2 = '<div class="plan-detail-header">'+
+      '<button class="nav-btn" data-plan-back aria-label="Zurück">‹</button>'+
+      '<span class="plan-detail-title">'+escapeHtml(plan.name)+'</span>'+
+    '</div>'+
+    '<form class="add-form-col" data-add-day="'+plan.id+'">'+
+      '<input type="text" name="name" placeholder="Neuer Tag, z. B. Tag A" maxlength="30" required>'+
+      '<button type="submit">Tag hinzufügen</button>'+
+    '</form>';
+    plan.days.forEach(function(day){ html2 += renderDayCard(plan.id, day); });
+    return html2;
+  }
+
+  function renderDayCard(planId, day){
+    var html = '<div class="session-card">'+
+      '<div class="session-header">'+
+        '<span class="exercise-name">'+escapeHtml(day.name)+'</span>'+
+        '<button class="icon-btn danger" data-day-delete="'+planId+'|'+day.id+'">✕</button>'+
+      '</div>'+
+      '<div class="session-body">';
+    day.exercises.forEach(function(ex){
+      var weightPart = ex.targetWeightKg ? ' @ '+ex.targetWeightKg+' kg' : '';
+      html += '<div class="set-row">'+
+        '<span>'+escapeHtml(ex.name)+' — '+ex.targetSets+' × '+ex.targetReps+weightPart+'</span>'+
+        '<button class="icon-btn danger" data-plan-exercise-delete="'+planId+'|'+day.id+'|'+ex.id+'" style="width:22px;height:22px;">✕</button>'+
+      '</div>';
+    });
+    html += '<form class="plan-exercise-form" data-add-plan-exercise="'+planId+'|'+day.id+'">'+
+      '<input type="text" name="name" placeholder="Übung" maxlength="30" required>'+
+      '<input type="number" name="sets" placeholder="Sätze" min="1" value="3" required>'+
+      '<input type="number" name="reps" placeholder="Wdh." min="1" value="10" required>'+
+      '<button type="submit">+</button>'+
+    '</form>';
+    html += '</div></div>';
+    return html;
+  }
+
+  /* ---------------- render: Verlauf (Monat + Jahr) ---------------- */
+
+  function renderVerlauf(){
+    var html = '<section class="chips-row">'+trackerChipsHtml(verlaufTrackerId, "verlauf-tracker")+'</section>';
+    html += '<section class="chips-row" style="margin-top:-10px !important;">'+
+      '<button class="chip'+(verlaufMode==="monat"?" active":"")+'" data-verlauf-mode="monat">Monat</button>'+
+      '<button class="chip'+(verlaufMode==="jahr"?" active":"")+'" data-verlauf-mode="jahr">Jahr</button>'+
+    '</section>';
+    if (allTrackers().length===0){
+      html += '<p class="empty-hint">Lege zuerst einen Tracker unter „Verwalten“ an.</p>';
+      return html;
+    }
+    html += verlaufMode==="monat" ? renderVerlaufMonat() : renderVerlaufJahr();
+    return html;
+  }
+
+  function renderVerlaufMonat(){
+    if (verlaufTrackerId!=="__all__" && !data.trackers[verlaufTrackerId]) verlaufTrackerId = "__all__";
+    var selected = verlaufTrackerId;
+    var set = selected==="__all__" ? combinedDoneSet() : trackerDoneSet(selected);
+    var color = resolveColor(selected);
+    var grid = buildMonthGrid(calState.year, calState.month);
+    var weekdayRow = WEEKDAYS_SHORT.map(function(w){ return '<div class="wd">'+w+'</div>'; }).join("");
+    var cellsHtml = grid.map(function(cell){
+      var classes = ["day-cell"];
+      if (!cell.inMonth) classes.push("out");
+      if (cell.isToday) classes.push("today");
+      if (cell.isFuture) classes.push("future");
+      if (set.has(cell.date)) classes.push("done");
+      if (selected==="__all__") classes.push("readonly");
+      var attrs = 'style="--catcolor:'+color+'"';
+      if (cell.isFuture || selected==="__all__") attrs += ' disabled';
+      else attrs += ' data-toggle-date="'+cell.date+'"';
+      return '<button class="'+classes.join(" ")+'" '+attrs+'>'+cell.day+'</button>';
+    }).join("");
+    var curStreak = selected==="__all__" ? currentStreakFromSet(set) : currentStreak(selected);
+    var best = selected==="__all__" ? bestStreakFromSet(set) : bestStreak(selected);
+    var hint = selected==="__all__" ? '<p class="empty-hint">Wähle oben einen einzelnen Tracker aus, um Tage nachzutragen.</p>' : '';
+    return ''+
+      '<section class="cal-header">'+
+        '<button class="nav-btn" data-cal-nav="-1" aria-label="Vorheriger Monat">‹</button>'+
+        '<div class="cal-title">'+MONTHS[calState.month]+' '+calState.year+'</div>'+
+        '<button class="nav-btn" data-cal-nav="1" aria-label="Nächster Monat">›</button>'+
+      '</section>'+
+      '<section class="stat-row">'+
+        '<div class="stat"><span class="stat-num">'+curStreak+'</span><span class="stat-label">Aktuelle Serie</span></div>'+
+        '<div class="stat"><span class="stat-num">'+best+'</span><span class="stat-label">Bestwert</span></div>'+
+      '</section>'+
+      '<section class="cal-grid">'+weekdayRow+cellsHtml+'</section>'+
+      hint;
+  }
+
+  function renderVerlaufJahr(){
+    if (verlaufTrackerId!=="__all__" && !data.trackers[verlaufTrackerId]) verlaufTrackerId = "__all__";
+    var selected = verlaufTrackerId;
+    var color = resolveColor(selected);
+    var weeks = buildYearWeeks(yearState.year);
+    var yearStart = yearState.year+"-01-01";
+    var yearEnd = yearState.year+"-12-31";
+    var weeksHtml = weeks.map(function(week){
+      var label = "";
+      for (var i=0;i<week.length;i++){
+        if (week[i].getDate()<=7 && fmt(week[i])>=yearStart && fmt(week[i])<=yearEnd && week[i].getDay()===1){
+          label = MONTHS_SHORT[week[i].getMonth()];
+        }
+      }
+      var cellsHtml = week.map(function(d){
+        var ds = fmt(d);
+        if (ds<yearStart || ds>yearEnd) return '<span class="heat-cell pad"></span>';
+        var level = levelForDate(ds, selected);
+        return '<span class="heat-cell" data-level="'+level+'" style="--catcolor:'+color+'; background:'+(level===0?'var(--surface)':'color-mix(in srgb, '+color+' '+(level*25)+'%, var(--surface))')+'"></span>';
+      }).join("");
+      return '<div class="year-week">'+(label?'<span class="year-month-label">'+label+'</span>':'')+cellsHtml+'</div>';
+    }).join("");
+    var yearSet = selected==="__all__" ? combinedDoneSet() : trackerDoneSet(selected);
+    var yearOnly = new Set(Array.from(yearSet).filter(function(d){ return d>=yearStart && d<=yearEnd; }));
+    var activeDays = yearOnly.size;
+    var longest = bestStreakFromSet(yearOnly);
+    return ''+
+      '<section class="cal-header">'+
+        '<button class="nav-btn" data-year-nav="-1" aria-label="Vorheriges Jahr">‹</button>'+
+        '<div class="cal-title">'+yearState.year+'</div>'+
+        '<button class="nav-btn" data-year-nav="1" aria-label="Nächstes Jahr">›</button>'+
+      '</section>'+
+      '<section class="stat-row">'+
+        '<div class="stat"><span class="stat-num">'+activeDays+'</span><span class="stat-label">Aktive Tage</span></div>'+
+        '<div class="stat"><span class="stat-num">'+longest+'</span><span class="stat-label">Längste Serie</span></div>'+
+      '</section>'+
+      '<section class="year-weeks-wrap">'+
+        '<div class="year-scroll"><div class="year-inner">'+weeksHtml+'</div></div>'+
+        '<div class="legend">wenig'+
+          [0,1,2,3,4].map(function(l){
+            return '<span class="heat-cell" style="background:'+(l===0?'var(--surface)':'color-mix(in srgb, '+color+' '+(l*25)+'%, var(--surface))')+'"></span>';
+          }).join("")+
+          'viel</div>'+
+      '</section>';
+  }
+
+  /* ---------------- render: Verwalten ---------------- */
+
+  function renderVerwalten(){
+    var html = '<section class="manage-intro"><p>Trage hier deine Tracker ein – pro Kategorie so viele du möchtest.</p></section>';
+    Object.keys(CATEGORIES).forEach(function(catKey){
+      var cat = CATEGORIES[catKey];
+      var trackers = trackersByCategory(catKey);
+      html += '<section class="cat-block">'+
+        '<h2 class="cat-title" style="--catcolor:'+cat.color+'">'+cat.label+'</h2>';
+      if (trackers.length){
+        html += '<ul class="tracker-list">';
+        trackers.forEach(function(t){
+          html += '<li class="tracker-row">'+
+            '<span class="tracker-name">'+escapeHtml(t.name)+'</span>'+
+            '<button class="icon-btn" data-rename="'+t.id+'" aria-label="Umbenennen">✎</button>'+
+            '<button class="icon-btn danger" data-delete="'+t.id+'" aria-label="Löschen">✕</button>'+
+          '</li>';
+        });
+        html += '</ul>';
+      }
+      html += '<form class="add-form" data-add-category="'+catKey+'">'+
+        '<input type="text" name="name" placeholder="Neuer Tracker …" maxlength="40" required>'+
+        '<button type="submit">Hinzufügen</button>'+
+      '</form>'+
+      '</section>';
+    });
+    html += '<section class="cat-block">'+
+      '<h2 class="cat-title" style="--catcolor:var(--accent-neutral)">Datensicherung</h2>'+
+      '<p class="empty-hint" style="padding-left:0">Alles bleibt nur auf diesem Gerät gespeichert. Sichere hin und wieder ein Backup, damit nichts verloren geht.</p>'+
+      '<div class="backup-actions">'+
+        '<button type="button" class="action-btn primary" id="exportBtn">Backup exportieren</button>'+
+        '<button type="button" class="action-btn" id="importBtn">Backup importieren</button>'+
+        '<input type="file" id="importFile" accept="application/json" style="display:none">'+
+      '</div>'+
+    '</section>';
+    html += '<section class="danger-zone"><button class="link-btn danger" id="resetAllBtn">Alle Daten zurücksetzen</button></section>';
+    return html;
+  }
+
+  /* ---------------- routing / render ---------------- */
+
+  var TABS = { heute:renderHeute, lernen:renderLernen, sport:renderSport, verlauf:renderVerlauf, verwalten:renderVerwalten };
+
+  function render(){
+    document.getElementById("todayDateLabel").textContent = formatHeaderDate();
+    document.getElementById("view").innerHTML = TABS[activeTab]();
+    document.querySelectorAll(".tab").forEach(function(btn){
+      btn.classList.toggle("active", btn.getAttribute("data-tab")===activeTab);
+    });
+    if (activeTab==="verlauf" && verlaufMode==="jahr"){
+      var scrollEl = document.querySelector(".year-scroll");
+      if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
+    }
+    manageTicking();
+  }
+
+  function manageTicking(){
+    if (tickTimer){ clearInterval(tickTimer); tickTimer = null; }
+    if (activeTab==="lernen" && lernenSubTab==="timer" && timerState.running){
+      tickTimer = setInterval(function(){
+        var el = document.getElementById("timerDisplay");
+        if (el) el.textContent = formatDuration(currentElapsedSeconds());
+        else { clearInterval(tickTimer); tickTimer = null; }
+      }, 1000);
+    }
+  }
+
+  function setTab(tab){ activeTab = tab; render(); }
+
+  /* ---------------- events ---------------- */
+
+  document.querySelectorAll(".tab").forEach(function(btn){
+    btn.addEventListener("click", function(){ setTab(btn.getAttribute("data-tab")); });
+  });
+
+  document.getElementById("view").addEventListener("click", function(ev){
+    var el;
+
+    el = ev.target.closest("[data-goto]");
+    if (el){ setTab(el.getAttribute("data-goto")); return; }
+
+    // ---- Heute ----
+    el = ev.target.closest("[data-toggle]");
+    if (el){
+      toggleEntry(el.getAttribute("data-toggle"), el.getAttribute("data-date"));
+      if (!el.classList.contains("done")) el.classList.add("pop");
+      render();
+      return;
+    }
+
+    // ---- Lernen: Timer ----
+    el = ev.target.closest("[data-lernen-tab]");
+    if (el){ lernenSubTab = el.getAttribute("data-lernen-tab"); render(); return; }
+
+    el = ev.target.closest("[data-timer-target]");
+    if (el){ timerSetTarget(parseInt(el.getAttribute("data-timer-target"),10)); render(); return; }
+
+    el = ev.target.closest("[data-timer-start]");
+    if (el){ timerStart(); render(); return; }
+
+    el = ev.target.closest("[data-timer-pause]");
+    if (el){ timerPause(); render(); return; }
+
+    el = ev.target.closest("[data-timer-finish]");
+    if (el && !el.disabled){
+      var noteEl = document.getElementById("timerNoteInput");
+      var noteVal = noteEl ? noteEl.value.trim() : "";
+      timerFinish(noteVal || null);
+      render();
+      return;
+    }
+
+    // ---- Lernen: Lernplan ----
+    el = ev.target.closest("[data-study-plan-delete]");
+    if (el){
+      var spid = el.getAttribute("data-study-plan-delete");
+      data.studyPlan = data.studyPlan.filter(function(x){ return x.id!==spid; });
+      save(); render();
+      return;
+    }
+
+    // ---- Sport: Tab-Wahl ----
+    el = ev.target.closest("[data-sport-tab]");
+    if (el){ sportSubTab = el.getAttribute("data-sport-tab"); render(); return; }
+
+    // ---- Sport: Tagebuch ----
+    el = ev.target.closest("[data-session-toggle]");
+    if (el){
+      var sid = el.getAttribute("data-session-toggle");
+      if (expandedSessions[sid]) delete expandedSessions[sid]; else expandedSessions[sid] = true;
+      render();
+      return;
+    }
+
+    el = ev.target.closest("[data-session-delete]");
+    if (el){
+      var delSid = el.getAttribute("data-session-delete");
+      if (window.confirm("Dieses Training inklusive aller Übungen und Sätze löschen?")){
+        data.workoutSessions = data.workoutSessions.filter(function(s){ return s.id!==delSid; });
+        save(); render();
+      }
+      return;
+    }
+
+    el = ev.target.closest("[data-exercise-delete]");
+    if (el){
+      var pEx = el.getAttribute("data-exercise-delete").split("|");
+      var sessEx = data.workoutSessions.find(function(s){ return s.id===pEx[0]; });
+      if (sessEx){ sessEx.exercises = sessEx.exercises.filter(function(e){ return e.id!==pEx[1]; }); save(); render(); }
+      return;
+    }
+
+    el = ev.target.closest("[data-set-delete]");
+    if (el){
+      var pSet = el.getAttribute("data-set-delete").split("|");
+      var sessSet = data.workoutSessions.find(function(s){ return s.id===pSet[0]; });
+      if (sessSet){
+        var exSet = sessSet.exercises.find(function(e){ return e.id===pSet[1]; });
+        if (exSet){ exSet.sets = exSet.sets.filter(function(s){ return s.id!==pSet[2]; }); save(); render(); }
+      }
+      return;
+    }
+
+    // ---- Sport: Trainingsplan ----
+    el = ev.target.closest("[data-training-plan-open]");
+    if (el){ selectedPlanId = el.getAttribute("data-training-plan-open"); render(); return; }
+
+    el = ev.target.closest("[data-training-plan-delete]");
+    if (el){
+      var tpid = el.getAttribute("data-training-plan-delete");
+      var tp = data.trainingPlans.find(function(p){ return p.id===tpid; });
+      if (tp && window.confirm('Trainingsplan "'+tp.name+'" inklusive aller Tage und Übungen löschen?')){
+        data.trainingPlans = data.trainingPlans.filter(function(p){ return p.id!==tpid; });
+        save(); render();
+      }
+      return;
+    }
+
+    el = ev.target.closest("[data-plan-back]");
+    if (el){ selectedPlanId = null; render(); return; }
+
+    el = ev.target.closest("[data-day-delete]");
+    if (el){
+      var pDay = el.getAttribute("data-day-delete").split("|");
+      var planDay = data.trainingPlans.find(function(p){ return p.id===pDay[0]; });
+      if (planDay){ planDay.days = planDay.days.filter(function(d){ return d.id!==pDay[1]; }); save(); render(); }
+      return;
+    }
+
+    el = ev.target.closest("[data-plan-exercise-delete]");
+    if (el){
+      var pPEx = el.getAttribute("data-plan-exercise-delete").split("|");
+      var planPEx = data.trainingPlans.find(function(p){ return p.id===pPEx[0]; });
+      if (planPEx){
+        var dayPEx = planPEx.days.find(function(d){ return d.id===pPEx[1]; });
+        if (dayPEx){ dayPEx.exercises = dayPEx.exercises.filter(function(e){ return e.id!==pPEx[2]; }); save(); render(); }
+      }
+      return;
+    }
+
+    // ---- Verlauf ----
+    el = ev.target.closest("[data-verlauf-tracker]");
+    if (el){ verlaufTrackerId = el.getAttribute("data-verlauf-tracker"); render(); return; }
+
+    el = ev.target.closest("[data-verlauf-mode]");
+    if (el){ verlaufMode = el.getAttribute("data-verlauf-mode"); render(); return; }
+
+    el = ev.target.closest("[data-toggle-date]");
+    if (el && !el.disabled){
+      toggleEntry(verlaufTrackerId, el.getAttribute("data-toggle-date"));
+      render();
+      return;
+    }
+
+    el = ev.target.closest("[data-cal-nav]");
+    if (el){
+      var dir = parseInt(el.getAttribute("data-cal-nav"),10);
+      calState.month += dir;
+      if (calState.month<0){ calState.month=11; calState.year--; }
+      if (calState.month>11){ calState.month=0; calState.year++; }
+      render();
+      return;
+    }
+
+    el = ev.target.closest("[data-year-nav]");
+    if (el){
+      yearState.year += parseInt(el.getAttribute("data-year-nav"),10);
+      render();
+      return;
+    }
+
+    // ---- Verwalten ----
+    el = ev.target.closest("[data-rename]");
+    if (el){
+      var id = el.getAttribute("data-rename");
+      var t = data.trackers[id];
+      var name = window.prompt("Neuer Name:", t.name);
+      if (name && name.trim()){ t.name = name.trim().slice(0,40); save(); render(); }
+      return;
+    }
+
+    el = ev.target.closest("[data-delete]");
+    if (el){
+      var did = el.getAttribute("data-delete");
+      var dt = data.trackers[did];
+      if (window.confirm('"'+dt.name+'" wirklich löschen? Alle erfassten Tage dafür gehen verloren.')){
+        delete data.trackers[did];
+        delete data.entries[did];
+        save();
+        render();
+      }
+      return;
+    }
+
+    if (ev.target.id==="exportBtn"){
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type:"application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "streifen-backup-"+todayStr()+".json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      return;
+    }
+
+    if (ev.target.id==="importBtn"){
+      document.getElementById("importFile").click();
+      return;
+    }
+
+    if (ev.target.id==="resetAllBtn"){
+      if (window.confirm("Wirklich ALLE Daten löschen (Tracker, Lernen, Sport, Pläne)? Das kann nicht rückgängig gemacht werden.")){
+        data = defaultData();
+        save();
+        timerState = { running:false, startMillis:0, accumulated:0, targetMinutes:25 };
+        saveTimer();
+        selectedPlanId = null;
+        expandedSessions = {};
+        render();
+      }
+      return;
+    }
+  });
+
+  document.getElementById("view").addEventListener("change", function(ev){
+    if (ev.target.matches("[data-study-plan-toggle]")){
+      var spId = ev.target.getAttribute("data-study-plan-toggle");
+      var item = data.studyPlan.find(function(x){ return x.id===spId; });
+      if (item){ item.done = !item.done; save(); render(); }
+      return;
+    }
+    if (ev.target.id==="importFile"){
+      var file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(){
+        try{
+          var parsed = JSON.parse(reader.result);
+          if (!parsed || typeof parsed.trackers!=="object" || typeof parsed.entries!=="object"){
+            window.alert("Diese Datei sieht nicht wie ein gültiges Streifen-Backup aus.");
+            return;
+          }
+          if (window.confirm("Aktuelle Daten auf diesem Gerät durch dieses Backup ersetzen? Das kann nicht rückgängig gemacht werden.")){
+            if (!Array.isArray(parsed.studySessions)) parsed.studySessions = [];
+            if (!Array.isArray(parsed.studyPlan)) parsed.studyPlan = [];
+            if (!Array.isArray(parsed.workoutSessions)) parsed.workoutSessions = [];
+            if (!Array.isArray(parsed.trainingPlans)) parsed.trainingPlans = [];
+            data = parsed;
+            save();
+            selectedPlanId = null;
+            expandedSessions = {};
+            render();
+          }
+        }catch(e){
+          window.alert("Datei konnte nicht gelesen werden: keine gültige JSON-Datei.");
+        }
+      };
+      reader.readAsText(file);
+      ev.target.value = "";
+      return;
+    }
+  });
+
+  document.getElementById("view").addEventListener("submit", function(ev){
+    var form;
+
+    form = ev.target.closest("#studyPlanForm");
+    if (form){
+      ev.preventDefault();
+      var titleInput = form.querySelector('input[name="title"]');
+      var subjectInput = form.querySelector('input[name="subject"]');
+      var titleVal = titleInput.value.trim();
+      if (!titleVal) return;
+      data.studyPlan.push({ id:makeId(), title:titleVal.slice(0,60), subject: subjectInput.value.trim().slice(0,40) || null, done:false });
+      save(); render();
+      return;
+    }
+
+    form = ev.target.closest("#newWorkoutForm");
+    if (form){
+      ev.preventDefault();
+      var noteInput = form.querySelector('input[name="note"]');
+      var noteVal2 = noteInput.value.trim();
+      data.workoutSessions.push({ id:makeId(), date:todayStr(), note: noteVal2 || null, exercises: [] });
+      save(); render();
+      return;
+    }
+
+    form = ev.target.closest("[data-add-exercise]");
+    if (form){
+      ev.preventDefault();
+      var sessId = form.getAttribute("data-add-exercise");
+      var nameInput = form.querySelector('input[name="name"]');
+      var nameVal = nameInput.value.trim();
+      if (!nameVal) return;
+      var sess = data.workoutSessions.find(function(s){ return s.id===sessId; });
+      if (sess){
+        sess.exercises.push({ id:makeId(), name:nameVal.slice(0,40), sets: [] });
+        save(); render();
+      }
+      return;
+    }
+
+    form = ev.target.closest("[data-add-set]");
+    if (form){
+      ev.preventDefault();
+      var partsSet = form.getAttribute("data-add-set").split("|");
+      var weightInput = form.querySelector('input[name="weight"]');
+      var repsInput = form.querySelector('input[name="reps"]');
+      var w = parseFloat((weightInput.value||"").replace(",", "."));
+      var r = parseInt(repsInput.value, 10);
+      if (isNaN(w) || isNaN(r)) return;
+      var sessS = data.workoutSessions.find(function(s){ return s.id===partsSet[0]; });
+      if (sessS){
+        var exS = sessS.exercises.find(function(e){ return e.id===partsSet[1]; });
+        if (exS){
+          exS.sets.push({ id:makeId(), setNumber: exS.sets.length+1, weightKg:w, reps:r });
+          save(); render();
+        }
+      }
+      return;
+    }
+
+    form = ev.target.closest("#newPlanForm");
+    if (form){
+      ev.preventDefault();
+      var planNameInput = form.querySelector('input[name="name"]');
+      var planNameVal = planNameInput.value.trim();
+      if (!planNameVal) return;
+      data.trainingPlans.push({ id:makeId(), name:planNameVal.slice(0,40), days: [] });
+      save(); render();
+      return;
+    }
+
+    form = ev.target.closest("[data-add-day]");
+    if (form){
+      ev.preventDefault();
+      var planId2 = form.getAttribute("data-add-day");
+      var dayNameInput = form.querySelector('input[name="name"]');
+      var dayNameVal = dayNameInput.value.trim();
+      if (!dayNameVal) return;
+      var plan5 = data.trainingPlans.find(function(p){ return p.id===planId2; });
+      if (plan5){
+        plan5.days.push({ id:makeId(), name:dayNameVal.slice(0,30), exercises: [] });
+        save(); render();
+      }
+      return;
+    }
+
+    form = ev.target.closest("[data-add-plan-exercise]");
+    if (form){
+      ev.preventDefault();
+      var partsPEx = form.getAttribute("data-add-plan-exercise").split("|");
+      var exNameInput = form.querySelector('input[name="name"]');
+      var setsInput = form.querySelector('input[name="sets"]');
+      var repsInput2 = form.querySelector('input[name="reps"]');
+      var exNameVal = exNameInput.value.trim();
+      var setsVal = parseInt(setsInput.value, 10);
+      var repsVal = parseInt(repsInput2.value, 10);
+      if (!exNameVal || isNaN(setsVal) || isNaN(repsVal)) return;
+      var plan6 = data.trainingPlans.find(function(p){ return p.id===partsPEx[0]; });
+      if (plan6){
+        var day6 = plan6.days.find(function(d){ return d.id===partsPEx[1]; });
+        if (day6){
+          day6.exercises.push({ id:makeId(), name:exNameVal.slice(0,30), targetSets:setsVal, targetReps:repsVal, targetWeightKg:null });
+          save(); render();
+        }
+      }
+      return;
+    }
+
+    form = ev.target.closest("[data-add-category]");
+    if (form){
+      ev.preventDefault();
+      var input = form.querySelector('input[name="name"]');
+      var name = input.value.trim();
+      if (!name) return;
+      var id2 = makeId();
+      data.trackers[id2] = { id:id2, name:name.slice(0,40), category:form.getAttribute("data-add-category") };
+      data.entries[id2] = {};
+      save();
+      render();
+      return;
+    }
+  });
+
+  if ("serviceWorker" in navigator && location.protocol.indexOf("http")===0){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
