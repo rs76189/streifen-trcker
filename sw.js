@@ -1,4 +1,4 @@
-const CACHE_NAME = "streifen-cache-v1";
+const CACHE_NAME = "streifen-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -25,6 +25,24 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const isAppShell = event.request.mode === "navigate" || event.request.url.endsWith("index.html");
+
+  if (isAppShell) {
+    // Für die App-Seite selbst: immer zuerst das Netz probieren, damit Updates
+    // sofort ankommen. Nur wenn offline, auf die zuletzt gespeicherte Version zurückfallen.
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Für alles andere (Icons, Manifest): Cache zuerst, das ändert sich kaum.
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );

@@ -493,6 +493,10 @@
       <svg viewBox="0 0 24 24"><path d="M4 9v6M2.3 10.5v3M20 9v6M21.7 10.5v3M6.5 12h11"/></svg>
       Sport
     </button>
+    <button class="tab" data-tab="kaufpause" aria-label="Kaufpause">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M10 9v6M14 9v6"/></svg>
+      Kaufpause
+    </button>
     <button class="tab" data-tab="verlauf" aria-label="Verlauf">
       <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>
       Verlauf
@@ -534,7 +538,10 @@
       studySessions: [],
       studyPlan: [],
       workoutSessions: [],
-      trainingPlans: []
+      trainingPlans: [],
+      nutritionEntries: [],
+      nutritionGoal: null,
+      purchasePauses: []
     };
   }
 
@@ -548,6 +555,9 @@
           if (!Array.isArray(parsed.studyPlan)) parsed.studyPlan = [];
           if (!Array.isArray(parsed.workoutSessions)) parsed.workoutSessions = [];
           if (!Array.isArray(parsed.trainingPlans)) parsed.trainingPlans = [];
+          if (!Array.isArray(parsed.nutritionEntries)) parsed.nutritionEntries = [];
+          if (typeof parsed.nutritionGoal === "undefined") parsed.nutritionGoal = null;
+          if (!Array.isArray(parsed.purchasePauses)) parsed.purchasePauses = [];
           return parsed;
         }
       }
@@ -625,6 +635,33 @@
     var h = Math.floor(total/3600);
     var m = Math.floor((total%3600)/60);
     return h>0 ? (h+" Std. "+m+" Min.") : (m+" Min.");
+  }
+
+  /* ---------------- Ernährung ---------------- */
+
+  function nutritionEntriesForDate(dateStr){
+    return data.nutritionEntries.filter(function(e){ return e.date===dateStr; });
+  }
+  function nutritionTotalForDate(dateStr){
+    return nutritionEntriesForDate(dateStr).reduce(function(s,e){ return s+e.calories; }, 0);
+  }
+
+  /* ---------------- Kaufpause ---------------- */
+
+  var newPauseDuration = 24; // Stunden
+
+  function pauseEndMillis(p){ return p.createdAt + p.durationHours*3600*1000; }
+  function isPauseActive(p){ return p.decision===null && Date.now() < pauseEndMillis(p); }
+  function formatCountdown(ms){
+    if (ms<0) ms = 0;
+    var totalSeconds = Math.floor(ms/1000);
+    var d = Math.floor(totalSeconds/86400);
+    var h = Math.floor((totalSeconds%86400)/3600);
+    var m = Math.floor((totalSeconds%3600)/60);
+    var s = totalSeconds%60;
+    function p2(n){ return (n<10?"0":"")+n; }
+    if (d>0) return d+"T "+p2(h)+":"+p2(m)+":"+p2(s);
+    return h+":"+p2(m)+":"+p2(s);
   }
 
   /* ---------------- date helpers ---------------- */
@@ -771,6 +808,7 @@
   var calState = { year:new Date().getFullYear(), month:new Date().getMonth() };
   var yearState = { year:new Date().getFullYear() };
   var tickTimer = null;
+  var pauseTickTimer = null;
 
   function resolveColor(trackerId){
     if (trackerId==="__all__") return "var(--accent-neutral)";
@@ -907,8 +945,59 @@
     var html = '<section class="chips-row">'+
       '<button class="chip'+(sportSubTab==="tagebuch"?" active":"")+'" data-sport-tab="tagebuch">Tagebuch</button>'+
       '<button class="chip'+(sportSubTab==="plan"?" active":"")+'" data-sport-tab="plan">Trainingsplan</button>'+
+      '<button class="chip'+(sportSubTab==="ernaehrung"?" active":"")+'" data-sport-tab="ernaehrung">Ernährung</button>'+
     '</section>';
-    html += sportSubTab==="tagebuch" ? renderTagebuch() : renderTrainingsplanTab();
+    if (sportSubTab==="tagebuch") html += renderTagebuch();
+    else if (sportSubTab==="plan") html += renderTrainingsplanTab();
+    else html += renderErnaehrung();
+    return html;
+  }
+
+  function renderErnaehrung(){
+    var today = todayStr();
+    var todayEntries = nutritionEntriesForDate(today);
+    var total = nutritionTotalForDate(today);
+    var goal = data.nutritionGoal;
+    var html = ''+
+      '<section class="hero">'+
+        '<div class="hero-number">'+total+'</div>'+
+        '<div class="hero-label">kcal heute'+(goal ? ' · Ziel '+goal+' kcal' : '')+'</div>'+
+      '</section>'+
+      '<section>'+
+        '<form class="add-form-col" id="nutritionForm">'+
+          '<input type="text" name="name" placeholder="Was hast du gegessen?" maxlength="60" required>'+
+          '<input type="number" name="calories" min="0" placeholder="kcal" required>'+
+          '<button type="submit">Eintragen</button>'+
+        '</form>'+
+      '</section>'+
+      '<section>';
+    if (todayEntries.length===0){
+      html += '<p class="empty-hint">Heute noch nichts eingetragen.</p>';
+    } else {
+      html += '<ul class="tracker-list">';
+      todayEntries.forEach(function(e){
+        html += '<li class="tracker-row">'+
+          '<span class="tracker-name">'+escapeHtml(e.name)+'</span>'+
+          '<span class="tracker-streak">'+e.calories+' kcal</span>'+
+          '<button class="icon-btn danger" data-nutrition-delete="'+e.id+'">✕</button>'+
+        '</li>';
+      });
+      html += '</ul>';
+    }
+    html += '</section>';
+    html += '<section><h2 class="cat-title" style="--catcolor:var(--accent-neutral)">Letzte 7 Tage</h2><ul class="tracker-list">';
+    for (var i=6;i>=0;i--){
+      var d = addDays(today, -i);
+      var t = nutritionTotalForDate(d);
+      html += '<li class="tracker-row"><span class="tracker-name">'+(d===today?"Heute":d)+'</span><span class="tracker-streak">'+t+' kcal</span></li>';
+    }
+    html += '</ul></section>';
+    html += '<section>'+
+      '<form class="add-form-col" id="nutritionGoalForm">'+
+        '<input type="number" name="goal" min="0" placeholder="Tagesziel in kcal (optional)" value="'+(goal!==null?goal:"")+'">'+
+        '<button type="submit">Ziel speichern</button>'+
+      '</form>'+
+    '</section>';
     return html;
   }
 
@@ -1134,6 +1223,90 @@
       '</section>';
   }
 
+  /* ---------------- render: Kaufpause ---------------- */
+
+  function renderKaufpause(){
+    var pauses = data.purchasePauses;
+    var active = pauses.filter(isPauseActive);
+    var readyForDecision = pauses.filter(function(p){ return p.decision===null && !isPauseActive(p); });
+    var decided = pauses.filter(function(p){ return p.decision!==null; });
+    var savedTotal = decided.filter(function(p){ return p.decision==="skipped"; })
+      .reduce(function(s,p){ return s+(p.price||0); }, 0);
+
+    var durationOptions = [[24,"24 Std."],[48,"48 Std."],[168,"7 Tage"]];
+    var durationChips = durationOptions.map(function(o){
+      return '<button type="button" class="chip'+(newPauseDuration===o[0]?" active":"")+'" data-pause-duration="'+o[0]+'">'+o[1]+'</button>';
+    }).join("");
+
+    var html = ''+
+      '<section class="hero">'+
+        '<div class="hero-number">'+savedTotal.toFixed(2).replace(".", ",")+' €</div>'+
+        '<div class="hero-label">gespart durch bewusste Entscheidungen</div>'+
+      '</section>'+
+      '<section>'+
+        '<form class="add-form-col" id="newPauseForm">'+
+          '<input type="text" name="name" placeholder="Was möchtest du kaufen?" maxlength="60" required>'+
+          '<input type="number" name="price" min="0" step="0.01" placeholder="Preis in € (optional)">'+
+          '<input type="text" name="note" placeholder="Notiz (optional)" maxlength="120">'+
+          '<div class="chips-row" style="margin-bottom:0 !important;">'+durationChips+'</div>'+
+          '<button type="submit">Kaufpause starten</button>'+
+        '</form>'+
+      '</section>';
+
+    html += '<section><h2 class="cat-title" style="--catcolor:var(--accent-habit)">Laufende Kaufpausen</h2>';
+    if (active.length===0){
+      html += '<p class="empty-hint">Keine laufende Kaufpause.</p>';
+    } else {
+      html += '<ul class="tracker-list">';
+      active.forEach(function(p){
+        var remaining = pauseEndMillis(p) - Date.now();
+        html += '<li class="tracker-row">'+
+          '<span class="tracker-name">'+escapeHtml(p.name)+(p.price?' · '+p.price.toFixed(2).replace(".", ",")+' €':'')+'</span>'+
+          '<span class="tracker-streak" style="font-size:0.82rem;">'+formatCountdown(remaining)+'</span>'+
+        '</li>';
+      });
+      html += '</ul>';
+    }
+    html += '</section>';
+
+    html += '<section><h2 class="cat-title" style="--catcolor:var(--accent-sport)">Zeit für eine Entscheidung</h2>';
+    if (readyForDecision.length===0){
+      html += '<p class="empty-hint">Nichts wartet gerade auf eine Entscheidung.</p>';
+    } else {
+      readyForDecision.forEach(function(p){
+        html += '<div class="session-card"><div class="session-body" style="padding-top:14px;">'+
+          '<div class="exercise-name">'+escapeHtml(p.name)+(p.price?' · '+p.price.toFixed(2).replace(".", ",")+' €':'')+'</div>'+
+          (p.note ? '<div class="session-note">'+escapeHtml(p.note)+'</div>' : '')+
+          '<div style="display:flex; gap:10px; margin-top:10px;">'+
+            '<button class="btn-wide" data-pause-decide="'+p.id+'|skipped">Nicht gekauft</button>'+
+            '<button class="btn-wide primary" data-pause-decide="'+p.id+'|bought">Doch gekauft</button>'+
+          '</div>'+
+        '</div></div>';
+      });
+    }
+    html += '</section>';
+
+    html += '<section><h2 class="cat-title" style="--catcolor:var(--accent-neutral)">Verlauf</h2>';
+    if (decided.length===0){
+      html += '<p class="empty-hint">Noch keine Entscheidungen getroffen.</p>';
+    } else {
+      var sortedDecided = decided.slice().sort(function(a,b){ return b.createdAt-a.createdAt; }).slice(0,15);
+      html += '<ul class="tracker-list">';
+      sortedDecided.forEach(function(p){
+        var label = p.decision==="skipped" ? "Nicht gekauft" : "Gekauft";
+        html += '<li class="tracker-row">'+
+          '<span class="tracker-name">'+escapeHtml(p.name)+'</span>'+
+          '<span class="tracker-streak" style="min-width:auto;">'+label+'</span>'+
+          '<button class="icon-btn danger" data-pause-delete="'+p.id+'">✕</button>'+
+        '</li>';
+      });
+      html += '</ul>';
+    }
+    html += '</section>';
+
+    return html;
+  }
+
   /* ---------------- render: Verwalten ---------------- */
 
   function renderVerwalten(){
@@ -1175,7 +1348,7 @@
 
   /* ---------------- routing / render ---------------- */
 
-  var TABS = { heute:renderHeute, lernen:renderLernen, sport:renderSport, verlauf:renderVerlauf, verwalten:renderVerwalten };
+  var TABS = { heute:renderHeute, lernen:renderLernen, sport:renderSport, kaufpause:renderKaufpause, verlauf:renderVerlauf, verwalten:renderVerwalten };
 
   function render(){
     document.getElementById("todayDateLabel").textContent = formatHeaderDate();
@@ -1188,6 +1361,14 @@
       if (scrollEl) scrollEl.scrollLeft = scrollEl.scrollWidth;
     }
     manageTicking();
+    managePauseTicking();
+  }
+
+  function managePauseTicking(){
+    if (pauseTickTimer){ clearInterval(pauseTickTimer); pauseTickTimer = null; }
+    if (activeTab==="kaufpause" && data.purchasePauses.some(function(p){ return p.decision===null; })){
+      pauseTickTimer = setInterval(function(){ render(); }, 30000);
+    }
   }
 
   function manageTicking(){
@@ -1365,6 +1546,39 @@
       return;
     }
 
+    // ---- Ernährung ----
+    el = ev.target.closest("[data-nutrition-delete]");
+    if (el){
+      var nid = el.getAttribute("data-nutrition-delete");
+      data.nutritionEntries = data.nutritionEntries.filter(function(x){ return x.id!==nid; });
+      save(); render();
+      return;
+    }
+
+    // ---- Kaufpause ----
+    el = ev.target.closest("[data-pause-duration]");
+    if (el){
+      newPauseDuration = parseInt(el.getAttribute("data-pause-duration"),10);
+      render();
+      return;
+    }
+
+    el = ev.target.closest("[data-pause-decide]");
+    if (el){
+      var pdParts = el.getAttribute("data-pause-decide").split("|");
+      var pauseItem = data.purchasePauses.find(function(p){ return p.id===pdParts[0]; });
+      if (pauseItem){ pauseItem.decision = pdParts[1]; save(); render(); }
+      return;
+    }
+
+    el = ev.target.closest("[data-pause-delete]");
+    if (el){
+      var pauseDelId = el.getAttribute("data-pause-delete");
+      data.purchasePauses = data.purchasePauses.filter(function(p){ return p.id!==pauseDelId; });
+      save(); render();
+      return;
+    }
+
     // ---- Verwalten ----
     el = ev.target.closest("[data-rename]");
     if (el){
@@ -1407,13 +1621,14 @@
     }
 
     if (ev.target.id==="resetAllBtn"){
-      if (window.confirm("Wirklich ALLE Daten löschen (Tracker, Lernen, Sport, Pläne)? Das kann nicht rückgängig gemacht werden.")){
+      if (window.confirm("Wirklich ALLE Daten löschen (Tracker, Lernen, Sport, Ernährung, Kaufpausen)? Das kann nicht rückgängig gemacht werden.")){
         data = defaultData();
         save();
         timerState = { running:false, startMillis:0, accumulated:0, targetMinutes:25 };
         saveTimer();
         selectedPlanId = null;
         expandedSessions = {};
+        newPauseDuration = 24;
         render();
       }
       return;
@@ -1564,6 +1779,51 @@
           save(); render();
         }
       }
+      return;
+    }
+
+    form = ev.target.closest("#nutritionForm");
+    if (form){
+      ev.preventDefault();
+      var foodNameInput = form.querySelector('input[name="name"]');
+      var caloriesInput = form.querySelector('input[name="calories"]');
+      var foodName = foodNameInput.value.trim();
+      var cal = parseInt(caloriesInput.value, 10);
+      if (!foodName || isNaN(cal)) return;
+      data.nutritionEntries.push({ id:makeId(), date:todayStr(), name:foodName.slice(0,60), calories:cal });
+      save(); render();
+      return;
+    }
+
+    form = ev.target.closest("#nutritionGoalForm");
+    if (form){
+      ev.preventDefault();
+      var goalInput = form.querySelector('input[name="goal"]');
+      var goalVal = parseInt(goalInput.value, 10);
+      data.nutritionGoal = isNaN(goalVal) ? null : goalVal;
+      save(); render();
+      return;
+    }
+
+    form = ev.target.closest("#newPauseForm");
+    if (form){
+      ev.preventDefault();
+      var pNameInput = form.querySelector('input[name="name"]');
+      var pPriceInput = form.querySelector('input[name="price"]');
+      var pNoteInput = form.querySelector('input[name="note"]');
+      var pName = pNameInput.value.trim();
+      if (!pName) return;
+      var priceVal = parseFloat((pPriceInput.value||"").replace(",", "."));
+      data.purchasePauses.push({
+        id: makeId(),
+        name: pName.slice(0,60),
+        price: isNaN(priceVal) ? null : priceVal,
+        note: pNoteInput.value.trim().slice(0,120) || null,
+        createdAt: Date.now(),
+        durationHours: newPauseDuration,
+        decision: null
+      });
+      save(); render();
       return;
     }
 
