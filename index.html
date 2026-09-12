@@ -364,6 +364,17 @@
     cursor:pointer;
   }
   .backup-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}
+  .food-table{width:100%; border-collapse:collapse; font-size:0.88rem; margin-top:4px;}
+  .food-table th{
+    text-align:left; font-size:0.72rem; color:var(--ink-faint);
+    font-family:var(--font-mono); font-weight:500;
+    padding-bottom:6px; border-bottom:1px solid var(--line);
+  }
+  .food-table td{padding:8px 4px; border-bottom:1px solid var(--line); color:var(--ink);}
+  .food-table tr:last-child td{border-bottom:none;}
+  .food-table td.num{font-family:var(--font-mono); color:var(--ink-soft); text-align:right; padding-right:10px;}
+  .food-table td.actions{text-align:right; white-space:nowrap; width:1%;}
+  .food-table .icon-btn{width:26px; height:26px; font-size:0.85rem;}
   .action-btn{
     border:1px solid var(--ink);
     background:var(--surface-raised);
@@ -541,6 +552,7 @@
       trainingPlans: [],
       nutritionEntries: [],
       nutritionGoal: null,
+      foodLibrary: [],
       purchasePauses: []
     };
   }
@@ -557,6 +569,7 @@
           if (!Array.isArray(parsed.trainingPlans)) parsed.trainingPlans = [];
           if (!Array.isArray(parsed.nutritionEntries)) parsed.nutritionEntries = [];
           if (typeof parsed.nutritionGoal === "undefined") parsed.nutritionGoal = null;
+          if (!Array.isArray(parsed.foodLibrary)) parsed.foodLibrary = [];
           if (!Array.isArray(parsed.purchasePauses)) parsed.purchasePauses = [];
           return parsed;
         }
@@ -965,7 +978,8 @@
       '</section>'+
       '<section>'+
         '<form class="add-form-col" id="nutritionForm">'+
-          '<input type="text" name="name" placeholder="Was hast du gegessen?" maxlength="60" required>'+
+          '<input type="text" name="name" list="foodLibraryOptions" placeholder="Was hast du gegessen?" maxlength="60" required autocomplete="off">'+
+          '<datalist id="foodLibraryOptions">'+foodDatalistHtml()+'</datalist>'+
           '<input type="number" name="calories" min="0" placeholder="kcal" required>'+
           '<button type="submit">Eintragen</button>'+
         '</form>'+
@@ -992,12 +1006,44 @@
       html += '<li class="tracker-row"><span class="tracker-name">'+(d===today?"Heute":d)+'</span><span class="tracker-streak">'+t+' kcal</span></li>';
     }
     html += '</ul></section>';
+    html += '<section>'+renderFoodLibrary()+'</section>';
     html += '<section>'+
       '<form class="add-form-col" id="nutritionGoalForm">'+
         '<input type="number" name="goal" min="0" placeholder="Tagesziel in kcal (optional)" value="'+(goal!==null?goal:"")+'">'+
         '<button type="submit">Ziel speichern</button>'+
       '</form>'+
     '</section>';
+    return html;
+  }
+
+  function foodDatalistHtml(){
+    return data.foodLibrary.map(function(f){ return '<option value="'+escapeHtml(f.name)+'"></option>'; }).join("");
+  }
+
+  function renderFoodLibrary(){
+    var html = '<h2 class="cat-title" style="--catcolor:var(--accent-neutral)">Nachschlagewerk</h2>';
+    if (data.foodLibrary.length===0){
+      html += '<p class="empty-hint">Noch keine Lebensmittel hinterlegt.</p>';
+    } else {
+      var sorted = data.foodLibrary.slice().sort(function(a,b){ return a.name.localeCompare(b.name, "de"); });
+      html += '<table class="food-table"><thead><tr><th>Lebensmittel</th><th>kcal</th><th></th></tr></thead><tbody>';
+      sorted.forEach(function(f){
+        html += '<tr>'+
+          '<td>'+escapeHtml(f.name)+'</td>'+
+          '<td class="num">'+f.calories+'</td>'+
+          '<td class="actions">'+
+            '<button type="button" class="icon-btn" data-food-quicklog="'+f.id+'" aria-label="Heute eintragen">+</button>'+
+            '<button type="button" class="icon-btn danger" data-food-delete="'+f.id+'" aria-label="Löschen">✕</button>'+
+          '</td>'+
+        '</tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '<form class="add-form" id="foodLibraryForm" style="margin-top:12px;">'+
+      '<input type="text" name="name" placeholder="Lebensmittel" maxlength="40" required>'+
+      '<input type="number" name="calories" placeholder="kcal" min="0" required style="max-width:80px;">'+
+      '<button type="submit">+</button>'+
+    '</form>';
     return html;
   }
 
@@ -1555,6 +1601,25 @@
       return;
     }
 
+    el = ev.target.closest("[data-food-quicklog]");
+    if (el){
+      var fqid = el.getAttribute("data-food-quicklog");
+      var food = data.foodLibrary.find(function(f){ return f.id===fqid; });
+      if (food){
+        data.nutritionEntries.push({ id:makeId(), date:todayStr(), name:food.name, calories:food.calories });
+        save(); render();
+      }
+      return;
+    }
+
+    el = ev.target.closest("[data-food-delete]");
+    if (el){
+      var fdid = el.getAttribute("data-food-delete");
+      data.foodLibrary = data.foodLibrary.filter(function(f){ return f.id!==fdid; });
+      save(); render();
+      return;
+    }
+
     // ---- Kaufpause ----
     el = ev.target.closest("[data-pause-duration]");
     if (el){
@@ -1632,6 +1697,18 @@
         render();
       }
       return;
+    }
+  });
+
+  document.getElementById("view").addEventListener("input", function(ev){
+    if (ev.target.matches('#nutritionForm input[name="name"]')){
+      var typedName = ev.target.value.trim().toLowerCase();
+      var match = data.foodLibrary.find(function(f){ return f.name.toLowerCase()===typedName; });
+      if (match){
+        var form = ev.target.closest("form");
+        var calInput = form.querySelector('input[name="calories"]');
+        if (calInput) calInput.value = match.calories;
+      }
     }
   });
 
@@ -1801,6 +1878,19 @@
       var goalInput = form.querySelector('input[name="goal"]');
       var goalVal = parseInt(goalInput.value, 10);
       data.nutritionGoal = isNaN(goalVal) ? null : goalVal;
+      save(); render();
+      return;
+    }
+
+    form = ev.target.closest("#foodLibraryForm");
+    if (form){
+      ev.preventDefault();
+      var flNameInput = form.querySelector('input[name="name"]');
+      var flCalInput = form.querySelector('input[name="calories"]');
+      var flName = flNameInput.value.trim();
+      var flCal = parseInt(flCalInput.value, 10);
+      if (!flName || isNaN(flCal)) return;
+      data.foodLibrary.push({ id:makeId(), name:flName.slice(0,40), calories:flCal });
       save(); render();
       return;
     }
