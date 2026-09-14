@@ -553,7 +553,8 @@
       nutritionEntries: [],
       nutritionGoal: null,
       foodLibrary: [],
-      purchasePauses: []
+      purchasePauses: [],
+      holdoutTimers: []
     };
   }
 
@@ -571,6 +572,7 @@
           if (typeof parsed.nutritionGoal === "undefined") parsed.nutritionGoal = null;
           if (!Array.isArray(parsed.foodLibrary)) parsed.foodLibrary = [];
           if (!Array.isArray(parsed.purchasePauses)) parsed.purchasePauses = [];
+          if (!Array.isArray(parsed.holdoutTimers)) parsed.holdoutTimers = [];
           return parsed;
         }
       }
@@ -822,6 +824,7 @@
   var yearState = { year:new Date().getFullYear() };
   var tickTimer = null;
   var pauseTickTimer = null;
+  var heuteTickTimer = null;
 
   function resolveColor(trackerId){
     if (trackerId==="__all__") return "var(--accent-neutral)";
@@ -883,6 +886,38 @@
       }
       html += '</section>';
     });
+    html += renderHoldoutSection();
+    return html;
+  }
+
+  function renderHoldoutSection(){
+    var html = '<section><h2 class="cat-title" style="--catcolor:var(--accent-habit)">Durchhalte-Timer</h2>';
+    if (data.holdoutTimers.length===0){
+      html += '<p class="empty-hint">Noch kein Timer angelegt.</p>';
+    } else {
+      html += '<ul class="tracker-list">';
+      data.holdoutTimers.forEach(function(t){
+        var elapsed = Date.now()-t.startedAt;
+        var best = Math.max(t.bestDurationMs||0, elapsed);
+        html += '<li class="tracker-row" style="align-items:flex-start; flex-wrap:wrap; gap:8px;">'+
+          '<div style="flex:1; min-width:150px;">'+
+            '<div class="tracker-name">'+escapeHtml(t.name)+'</div>'+
+            '<div data-holdout-display="'+t.id+'" style="font-family:var(--font-mono); font-size:0.95rem; color:var(--ink); margin-top:2px;">'+formatCountdown(elapsed)+'</div>'+
+            '<div style="font-size:0.75rem; color:var(--ink-faint); margin-top:2px;">Bestwert: '+formatCountdown(best)+'</div>'+
+          '</div>'+
+          '<div style="display:flex; gap:4px;">'+
+            '<button type="button" class="icon-btn" data-holdout-reset="'+t.id+'" aria-label="Zurücksetzen" title="Zurücksetzen">↺</button>'+
+            '<button type="button" class="icon-btn danger" data-holdout-delete="'+t.id+'" aria-label="Löschen">✕</button>'+
+          '</div>'+
+        '</li>';
+      });
+      html += '</ul>';
+    }
+    html += '<form class="add-form" id="holdoutForm" style="margin-top:10px;">'+
+      '<input type="text" name="name" placeholder="Was möchtest du durchhalten?" maxlength="50" required>'+
+      '<button type="submit">Start</button>'+
+    '</form>';
+    html += '</section>';
     return html;
   }
 
@@ -1408,12 +1443,25 @@
     }
     manageTicking();
     managePauseTicking();
+    manageHeuteTicking();
   }
 
   function managePauseTicking(){
     if (pauseTickTimer){ clearInterval(pauseTickTimer); pauseTickTimer = null; }
     if (activeTab==="kaufpause" && data.purchasePauses.some(function(p){ return p.decision===null; })){
       pauseTickTimer = setInterval(function(){ render(); }, 30000);
+    }
+  }
+
+  function manageHeuteTicking(){
+    if (heuteTickTimer){ clearInterval(heuteTickTimer); heuteTickTimer = null; }
+    if (activeTab==="heute" && data.holdoutTimers.length>0){
+      heuteTickTimer = setInterval(function(){
+        data.holdoutTimers.forEach(function(t){
+          var el = document.querySelector('[data-holdout-display="'+t.id+'"]');
+          if (el) el.textContent = formatCountdown(Date.now()-t.startedAt);
+        });
+      }, 1000);
     }
   }
 
@@ -1448,6 +1496,31 @@
       toggleEntry(el.getAttribute("data-toggle"), el.getAttribute("data-date"));
       if (!el.classList.contains("done")) el.classList.add("pop");
       render();
+      return;
+    }
+
+    // ---- Heute: Durchhalte-Timer ----
+    el = ev.target.closest("[data-holdout-reset]");
+    if (el){
+      var hrid = el.getAttribute("data-holdout-reset");
+      var holdoutT = data.holdoutTimers.find(function(t){ return t.id===hrid; });
+      if (holdoutT){
+        var elapsedNow = Date.now()-holdoutT.startedAt;
+        holdoutT.bestDurationMs = Math.max(holdoutT.bestDurationMs||0, elapsedNow);
+        holdoutT.startedAt = Date.now();
+        save(); render();
+      }
+      return;
+    }
+
+    el = ev.target.closest("[data-holdout-delete]");
+    if (el){
+      var hdid = el.getAttribute("data-holdout-delete");
+      var holdoutD = data.holdoutTimers.find(function(t){ return t.id===hdid; });
+      if (holdoutD && window.confirm('"'+holdoutD.name+'" wirklich löschen? Der aktuelle Stand geht verloren.')){
+        data.holdoutTimers = data.holdoutTimers.filter(function(t){ return t.id!==hdid; });
+        save(); render();
+      }
       return;
     }
 
@@ -1753,6 +1826,17 @@
 
   document.getElementById("view").addEventListener("submit", function(ev){
     var form;
+
+    form = ev.target.closest("#holdoutForm");
+    if (form){
+      ev.preventDefault();
+      var hNameInput = form.querySelector('input[name="name"]');
+      var hName = hNameInput.value.trim();
+      if (!hName) return;
+      data.holdoutTimers.push({ id:makeId(), name:hName.slice(0,50), startedAt:Date.now(), bestDurationMs:0 });
+      save(); render();
+      return;
+    }
 
     form = ev.target.closest("#studyPlanForm");
     if (form){
