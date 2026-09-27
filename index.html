@@ -231,7 +231,17 @@
     background:var(--surface-raised);
     color:var(--ink);
   }
-  .add-form-col input:focus{outline:2px solid var(--ink); outline-offset:1px;}
+  .add-form-col textarea{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:9px 11px;
+    font-size:0.92rem;
+    background:var(--surface-raised);
+    color:var(--ink);
+    font-family:inherit;
+    resize:vertical;
+  }
+  .add-form-col input:focus, .add-form-col textarea:focus{outline:2px solid var(--ink); outline-offset:1px;}
   .add-form-col button{
     border:1px solid var(--ink);
     background:var(--ink);
@@ -508,6 +518,10 @@
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M10 9v6M14 9v6"/></svg>
       Kaufpause
     </button>
+    <button class="tab" data-tab="notizen" aria-label="Notizen">
+      <svg viewBox="0 0 24 24"><rect x="4.5" y="3.5" width="15" height="17" rx="1.5"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+      Notizen
+    </button>
     <button class="tab" data-tab="verlauf" aria-label="Verlauf">
       <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>
       Verlauf
@@ -554,7 +568,8 @@
       nutritionGoal: null,
       foodLibrary: [],
       purchasePauses: [],
-      holdoutTimers: []
+      holdoutTimers: [],
+      notes: []
     };
   }
 
@@ -573,6 +588,7 @@
           if (!Array.isArray(parsed.foodLibrary)) parsed.foodLibrary = [];
           if (!Array.isArray(parsed.purchasePauses)) parsed.purchasePauses = [];
           if (!Array.isArray(parsed.holdoutTimers)) parsed.holdoutTimers = [];
+          if (!Array.isArray(parsed.notes)) parsed.notes = [];
           return parsed;
         }
       }
@@ -1390,6 +1406,41 @@
 
   /* ---------------- render: Verwalten ---------------- */
 
+  /* ---------------- render: Notizen ---------------- */
+
+  function formatNoteTimestamp(ms){
+    var d = new Date(ms);
+    var timeStr = pad2(d.getHours())+":"+pad2(d.getMinutes());
+    if (fmt(d)===todayStr()) return "Heute, "+timeStr;
+    return d.getDate()+". "+MONTHS_SHORT[d.getMonth()]+", "+timeStr;
+  }
+
+  function renderNotizen(){
+    var html = '<section>'+
+      '<form class="add-form-col" id="noteForm">'+
+        '<textarea name="text" rows="3" placeholder="Kurz notieren …" maxlength="500" required></textarea>'+
+        '<button type="submit">Speichern</button>'+
+      '</form>'+
+    '</section>';
+    html += '<section>';
+    if (data.notes.length===0){
+      html += '<p class="empty-hint">Noch keine Notizen.</p>';
+    } else {
+      var sorted = data.notes.slice().sort(function(a,b){ return b.createdAt-a.createdAt; });
+      sorted.forEach(function(n){
+        html += '<div class="session-card"><div class="session-body" style="padding-top:14px;">'+
+          '<div style="white-space:pre-wrap; font-size:0.92rem; color:var(--ink);">'+escapeHtml(n.text)+'</div>'+
+          '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">'+
+            '<span style="font-size:0.72rem; color:var(--ink-faint); font-family:var(--font-mono);">'+formatNoteTimestamp(n.createdAt)+'</span>'+
+            '<button type="button" class="icon-btn danger" data-note-delete="'+n.id+'" aria-label="Löschen">✕</button>'+
+          '</div>'+
+        '</div></div>';
+      });
+    }
+    html += '</section>';
+    return html;
+  }
+
   function renderVerwalten(){
     var html = '<section class="manage-intro"><p>Trage hier deine Tracker ein – pro Kategorie so viele du möchtest.</p></section>';
     Object.keys(CATEGORIES).forEach(function(catKey){
@@ -1429,7 +1480,7 @@
 
   /* ---------------- routing / render ---------------- */
 
-  var TABS = { heute:renderHeute, lernen:renderLernen, sport:renderSport, kaufpause:renderKaufpause, verlauf:renderVerlauf, verwalten:renderVerwalten };
+  var TABS = { heute:renderHeute, lernen:renderLernen, sport:renderSport, kaufpause:renderKaufpause, notizen:renderNotizen, verlauf:renderVerlauf, verwalten:renderVerwalten };
 
   function render(){
     document.getElementById("todayDateLabel").textContent = formatHeaderDate();
@@ -1717,6 +1768,15 @@
       return;
     }
 
+    // ---- Notizen ----
+    el = ev.target.closest("[data-note-delete]");
+    if (el){
+      var noteDelId = el.getAttribute("data-note-delete");
+      data.notes = data.notes.filter(function(n){ return n.id!==noteDelId; });
+      save(); render();
+      return;
+    }
+
     // ---- Verwalten ----
     el = ev.target.closest("[data-rename]");
     if (el){
@@ -1997,6 +2057,17 @@
         durationHours: newPauseDuration,
         decision: null
       });
+      save(); render();
+      return;
+    }
+
+    form = ev.target.closest("#noteForm");
+    if (form){
+      ev.preventDefault();
+      var noteTextArea = form.querySelector('textarea[name="text"]');
+      var noteText = noteTextArea.value.trim();
+      if (!noteText) return;
+      data.notes.push({ id:makeId(), text:noteText.slice(0,500), createdAt:Date.now() });
       save(); render();
       return;
     }
