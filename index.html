@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#E7E9E2">
-<title>Streifen – Tracker</title>
+<title>Habits – Tracker</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -492,13 +492,29 @@
   @media (prefers-reduced-motion:reduce){
     .check,.check.pop{animation:none !important;transition:none !important;}
   }
+
+  :root[data-theme="dark"] {
+    --paper: #1E201D;
+    --surface: #282A25;
+    --surface-raised: #32352E;
+    --ink: #E7E9E2;
+    --ink-soft: #A3A798;
+    --ink-faint: #6B6F60;
+    --line: #3E4239;
+    --accent-prod: #5B8BAA;
+    --accent-sport: #E07A3B;
+    --accent-habit: #829D72;
+    --accent-neutral: #9A9583;
+    --danger: #D96B5B;
+  }
+
 </style>
 </head>
 <body>
 <div id="app">
   <header class="topbar">
-    <div class="wordmark">Streifen</div>
-    <div class="today-date" id="todayDateLabel"></div>
+    <div class="wordmark">Habits</div>
+    <div style="display:flex; align-items:center; gap:12px;"><button type="button" class="icon-btn" id="themeToggleBtn" aria-label="Theme umschalten" style="font-size:1.2rem; cursor:pointer;">☀️</button><div class="today-date" id="todayDateLabel"></div></div>
   </header>
   <main id="view"></main>
   <nav class="tabbar">
@@ -534,9 +550,29 @@
 </div>
 <script>
 (function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+
   "use strict";
 
-  var STORAGE_KEY = "streifen_data_v1";
+  var STORAGE_KEY = "habits_app_data_v1";
   var TIMER_KEY = "streifen_timer_v1";
 
   var CATEGORIES = {
@@ -1500,7 +1536,27 @@
   function managePauseTicking(){
     if (pauseTickTimer){ clearInterval(pauseTickTimer); pauseTickTimer = null; }
     if (activeTab==="kaufpause" && data.purchasePauses.some(function(p){ return p.decision===null; })){
-      pauseTickTimer = setInterval(function(){ render(); }, 30000);
+      pauseTickTimer = setInterval(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+ render(); }, 30000);
     }
   }
 
@@ -1508,6 +1564,26 @@
     if (heuteTickTimer){ clearInterval(heuteTickTimer); heuteTickTimer = null; }
     if (activeTab==="heute" && data.holdoutTimers.length>0){
       heuteTickTimer = setInterval(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+
         data.holdoutTimers.forEach(function(t){
           var el = document.querySelector('[data-holdout-display="'+t.id+'"]');
           if (el) el.textContent = formatCountdown(Date.now()-t.startedAt);
@@ -1520,6 +1596,26 @@
     if (tickTimer){ clearInterval(tickTimer); tickTimer = null; }
     if (activeTab==="lernen" && lernenSubTab==="timer" && timerState.running){
       tickTimer = setInterval(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+
         var el = document.getElementById("timerDisplay");
         if (el) el.textContent = formatDuration(currentElapsedSeconds());
         else { clearInterval(tickTimer); tickTimer = null; }
@@ -1621,6 +1717,7 @@
 
     el = ev.target.closest("[data-session-delete]");
     if (el){
+      ev.stopPropagation();
       var delSid = el.getAttribute("data-session-delete");
       if (window.confirm("Dieses Training inklusive aller Übungen und Sätze löschen?")){
         data.workoutSessions = data.workoutSessions.filter(function(s){ return s.id!==delSid; });
@@ -1809,7 +1906,27 @@
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      setTimeout(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+ URL.revokeObjectURL(url); }, 1000);
       return;
     }
 
@@ -2089,7 +2206,27 @@
 
   if ("serviceWorker" in navigator && location.protocol.indexOf("http")===0){
     window.addEventListener("load", function(){
-      navigator.serviceWorker.register("sw.js").catch(function(){});
+      navigator.serviceWorker.register("sw.js").catch(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+});
     });
   }
 
