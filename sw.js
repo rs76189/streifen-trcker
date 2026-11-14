@@ -1,4 +1,4 @@
-const CACHE_NAME = "habits-cache-v1";
+const CACHE_NAME = "habits-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -25,7 +25,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  const isAppShell = event.request.mode === "navigate" || event.request.url.endsWith("index.html");
+  const isAppShell = event.request.mode === "navigate" || event.request.url.endsWith("index.html") || event.request.url.endsWith("manifest.json");
 
   if (isAppShell) {
     // Für die App-Seite selbst: immer zuerst das Netz probieren, damit Updates
