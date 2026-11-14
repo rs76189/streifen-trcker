@@ -1,4 +1,4 @@
-const CACHE_NAME = "habits-cache-v1";
+const CACHE_NAME = "habits-cache-v6";
 const ASSETS = [
   "./",
   "./index.html",
@@ -9,8 +9,12 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
+  // cache: "reload" umgeht den Browser-Zwischenspeicher, damit ein neues Manifest
+  // und neue Icons wirklich frisch vom Server geholt werden.
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(ASSETS.map((url) => new Request(url, { cache: "reload" })))
+    )
   );
   self.skipWaiting();
 });
@@ -25,11 +29,15 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  const isAppShell = event.request.mode === "navigate" || event.request.url.endsWith("index.html");
+  const url = event.request.url;
+  // App-Seite und Manifest: immer zuerst das Netz probieren, damit Änderungen
+  // (z. B. ein neuer App-Name) sofort ankommen. Nur offline greift der gespeicherte Stand.
+  const isAppShell =
+    event.request.mode === "navigate" ||
+    url.endsWith("index.html") ||
+    url.endsWith("manifest.json");
 
   if (isAppShell) {
-    // Für die App-Seite selbst: immer zuerst das Netz probieren, damit Updates
-    // sofort ankommen. Nur wenn offline, auf die zuletzt gespeicherte Version zurückfallen.
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -42,7 +50,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Für alles andere (Icons, Manifest): Cache zuerst, das ändert sich kaum.
+  // Für alles andere (Icons): Cache zuerst, das ändert sich kaum.
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
