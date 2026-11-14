@@ -4,9 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#E7E9E2">
-<meta name="application-name" content="Habits">
-<meta name="apple-mobile-web-app-title" content="Habits">
-<title>Habits</title>
+<title>Habits – Personal Tracker</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -423,8 +421,7 @@
   }
   .set-add-form{display:flex; gap:6px; margin-top:6px;}
   .set-add-form input{
-    flex:1 1 0;
-    min-width:0;
+    width:64px;
     border:1px solid var(--line);
     border-radius:var(--radius);
     padding:7px 8px;
@@ -432,12 +429,7 @@
     background:var(--surface-raised);
     color:var(--ink);
   }
-  /* Zahlen-Pfeile ausblenden, damit in den schmalen Feldern der ganze Platzhalter lesbar bleibt */
-  .set-add-form input[type="number"]{-moz-appearance:textfield; appearance:textfield;}
-  .set-add-form input[type="number"]::-webkit-inner-spin-button,
-  .set-add-form input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none; margin:0;}
   .set-add-form button{
-    flex:none;
     border:1px solid var(--ink);
     background:var(--surface-raised);
     color:var(--ink);
@@ -500,13 +492,29 @@
   @media (prefers-reduced-motion:reduce){
     .check,.check.pop{animation:none !important;transition:none !important;}
   }
+
+  :root[data-theme="dark"] {
+    --paper: #1E201D;
+    --surface: #282A25;
+    --surface-raised: #32352E;
+    --ink: #E7E9E2;
+    --ink-soft: #A3A798;
+    --ink-faint: #6B6F60;
+    --line: #3E4239;
+    --accent-prod: #5B8BAA;
+    --accent-sport: #E07A3B;
+    --accent-habit: #829D72;
+    --accent-neutral: #9A9583;
+    --danger: #D96B5B;
+  }
+
 </style>
 </head>
 <body>
 <div id="app">
   <header class="topbar">
     <div class="wordmark">Habits</div>
-    <div class="today-date" id="todayDateLabel"></div>
+    <div style="display:flex; align-items:center; gap:12px;"><button type="button" class="icon-btn" id="themeToggleBtn" aria-label="Theme umschalten" style="font-size:1.2rem; cursor:pointer;">☀️</button><div class="today-date" id="todayDateLabel"></div></div>
   </header>
   <main id="view"></main>
   <nav class="tabbar">
@@ -542,10 +550,30 @@
 </div>
 <script>
 (function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+
   "use strict";
 
-  var STORAGE_KEY = "streifen_data_v1";
-  var TIMER_KEY = "streifen_timer_v1";
+  var STORAGE_KEY = "habits_app_data_v1";
+  var TIMER_KEY = "habits_timer_v1";
 
   var CATEGORIES = {
     produktivitaet: { label:"Produktivität", color:"var(--accent-prod)" },
@@ -1151,23 +1179,6 @@
     return html;
   }
 
-  // Satzzeit als m:ss (bzw. h:mm:ss ab einer Stunde), z. B. 0:45 oder 12:30
-  function formatSetDuration(sec){
-    var h = Math.floor(sec/3600);
-    var m = Math.floor((sec%3600)/60);
-    var s = sec%60;
-    return h>0 ? (h+":"+pad2(m)+":"+pad2(s)) : (m+":"+pad2(s));
-  }
-
-  // Text für einen Satz. Ältere Sätze haben nur kg und Wdh. (keine Zeit) und
-  // reine Zeit-Sätze haben nur eine Dauer – beides wird richtig dargestellt.
-  function formatSetText(s){
-    var parts = [];
-    if (s.weightKg!=null && s.reps!=null) parts.push(s.weightKg+" kg × "+s.reps);
-    if (s.durationSec) parts.push(formatSetDuration(s.durationSec)+" min");
-    return parts.join(" · ");
-  }
-
   function renderExerciseRow(sessionId, ex){
     var html = '<div class="exercise-row">'+
       '<div class="exercise-header">'+
@@ -1176,16 +1187,14 @@
       '</div>';
     ex.sets.forEach(function(s){
       html += '<div class="set-row">'+
-        '<span>Satz '+s.setNumber+': '+formatSetText(s)+'</span>'+
+        '<span>Satz '+s.setNumber+': '+s.weightKg+' kg × '+s.reps+'</span>'+
         '<button class="icon-btn danger" data-set-delete="'+sessionId+'|'+ex.id+'|'+s.id+'" style="width:22px;height:22px;">✕</button>'+
       '</div>';
     });
     html += '<form class="set-add-form" data-add-set="'+sessionId+'|'+ex.id+'">'+
-      '<input type="number" step="0.5" min="0" name="weight" placeholder="kg" aria-label="Gewicht in kg">'+
-      '<input type="number" step="1" min="0" name="reps" placeholder="Wdh." aria-label="Wiederholungen">'+
-      '<input type="number" step="1" min="0" name="minutes" placeholder="Min" aria-label="Zeit: Minuten (optional)">'+
-      '<input type="number" step="1" min="0" max="59" name="seconds" placeholder="Sek" aria-label="Zeit: Sekunden (optional)">'+
-      '<button type="submit" aria-label="Satz hinzufügen">+</button>'+
+      '<input type="number" step="0.5" name="weight" placeholder="kg" required>'+
+      '<input type="number" step="1" name="reps" placeholder="Wdh." required>'+
+      '<button type="submit">+</button>'+
     '</form>';
     html += '</div>';
     return html;
@@ -1527,7 +1536,27 @@
   function managePauseTicking(){
     if (pauseTickTimer){ clearInterval(pauseTickTimer); pauseTickTimer = null; }
     if (activeTab==="kaufpause" && data.purchasePauses.some(function(p){ return p.decision===null; })){
-      pauseTickTimer = setInterval(function(){ render(); }, 30000);
+      pauseTickTimer = setInterval(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+ render(); }, 30000);
     }
   }
 
@@ -1535,6 +1564,26 @@
     if (heuteTickTimer){ clearInterval(heuteTickTimer); heuteTickTimer = null; }
     if (activeTab==="heute" && data.holdoutTimers.length>0){
       heuteTickTimer = setInterval(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+
         data.holdoutTimers.forEach(function(t){
           var el = document.querySelector('[data-holdout-display="'+t.id+'"]');
           if (el) el.textContent = formatCountdown(Date.now()-t.startedAt);
@@ -1547,6 +1596,26 @@
     if (tickTimer){ clearInterval(tickTimer); tickTimer = null; }
     if (activeTab==="lernen" && lernenSubTab==="timer" && timerState.running){
       tickTimer = setInterval(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+
         var el = document.getElementById("timerDisplay");
         if (el) el.textContent = formatDuration(currentElapsedSeconds());
         else { clearInterval(tickTimer); tickTimer = null; }
@@ -1638,24 +1707,22 @@
     if (el){ sportSubTab = el.getAttribute("data-sport-tab"); render(); return; }
 
     // ---- Sport: Tagebuch ----
-    // Wichtig: Der Löschen-Button liegt INNERHALB der klickbaren Kopfzeile. Darum muss er
-    // zuerst geprüft werden, sonst fängt das Auf-/Zuklappen den Klick ab.
-    el = ev.target.closest("[data-session-delete]");
-    if (el){
-      var delSid = el.getAttribute("data-session-delete");
-      if (window.confirm("Dieses Training inklusive aller Übungen und Sätze löschen?")){
-        data.workoutSessions = data.workoutSessions.filter(function(s){ return s.id!==delSid; });
-        delete expandedSessions[delSid];
-        save(); render();
-      }
-      return;
-    }
-
     el = ev.target.closest("[data-session-toggle]");
     if (el){
       var sid = el.getAttribute("data-session-toggle");
       if (expandedSessions[sid]) delete expandedSessions[sid]; else expandedSessions[sid] = true;
       render();
+      return;
+    }
+
+    el = ev.target.closest("[data-session-delete]");
+    if (el){
+      ev.stopPropagation();
+      var delSid = el.getAttribute("data-session-delete");
+      if (window.confirm("Dieses Training inklusive aller Übungen und Sätze löschen?")){
+        data.workoutSessions = data.workoutSessions.filter(function(s){ return s.id!==delSid; });
+        save(); render();
+      }
       return;
     }
 
@@ -1679,7 +1746,9 @@
     }
 
     // ---- Sport: Trainingsplan ----
-    // Auch hier zuerst Löschen prüfen, weil der Button in der klickbaren Zeile liegt.
+    el = ev.target.closest("[data-training-plan-open]");
+    if (el){ selectedPlanId = el.getAttribute("data-training-plan-open"); render(); return; }
+
     el = ev.target.closest("[data-training-plan-delete]");
     if (el){
       var tpid = el.getAttribute("data-training-plan-delete");
@@ -1690,9 +1759,6 @@
       }
       return;
     }
-
-    el = ev.target.closest("[data-training-plan-open]");
-    if (el){ selectedPlanId = el.getAttribute("data-training-plan-open"); render(); return; }
 
     el = ev.target.closest("[data-plan-back]");
     if (el){ selectedPlanId = null; render(); return; }
@@ -1840,7 +1906,27 @@
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      setTimeout(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+ URL.revokeObjectURL(url); }, 1000);
       return;
     }
 
@@ -1972,37 +2058,14 @@
       var partsSet = form.getAttribute("data-add-set").split("|");
       var weightInput = form.querySelector('input[name="weight"]');
       var repsInput = form.querySelector('input[name="reps"]');
-      var minutesInput = form.querySelector('input[name="minutes"]');
-      var secondsInput = form.querySelector('input[name="seconds"]');
       var w = parseFloat((weightInput.value||"").replace(",", "."));
       var r = parseInt(repsInput.value, 10);
-      var mins = parseInt(minutesInput.value, 10);
-      var secs = parseInt(secondsInput.value, 10);
-      var hasWeight = !isNaN(w), hasReps = !isNaN(r);
-      var totalSec = (isNaN(mins)?0:mins)*60 + (isNaN(secs)?0:secs);
-      if (w<0 || r<0 || mins<0 || secs<0){
-        window.alert("Bitte keine negativen Werte eintragen.");
-        return;
-      }
-      if (hasWeight !== hasReps){
-        window.alert("kg und Wdh. gehören zusammen – bitte beide ausfüllen oder beide leer lassen.");
-        return;
-      }
-      if (!hasWeight && totalSec<=0){
-        window.alert("Trage kg und Wdh. ein, eine Zeit – oder beides.");
-        return;
-      }
+      if (isNaN(w) || isNaN(r)) return;
       var sessS = data.workoutSessions.find(function(s){ return s.id===partsSet[0]; });
       if (sessS){
         var exS = sessS.exercises.find(function(e){ return e.id===partsSet[1]; });
         if (exS){
-          exS.sets.push({
-            id:makeId(),
-            setNumber: exS.sets.length+1,
-            weightKg: hasWeight ? w : null,
-            reps: hasReps ? r : null,
-            durationSec: totalSec>0 ? totalSec : null
-          });
+          exS.sets.push({ id:makeId(), setNumber: exS.sets.length+1, weightKg:w, reps:r });
           save(); render();
         }
       }
@@ -2143,7 +2206,27 @@
 
   if ("serviceWorker" in navigator && location.protocol.indexOf("http")===0){
     window.addEventListener("load", function(){
-      navigator.serviceWorker.register("sw.js").catch(function(){});
+      navigator.serviceWorker.register("sw.js").catch(function(){
+
+  // Theme Toggle Logic
+  var currentTheme = localStorage.getItem("habits_theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", currentTheme);
+
+  function updateThemeIcon(){
+    var btn = document.getElementById("themeToggleBtn");
+    if (btn) btn.textContent = currentTheme === "dark" ? "🌙" : "☀️";
+  }
+
+  document.addEventListener("click", function(ev){
+    if (ev.target && ev.target.id === "themeToggleBtn"){
+      currentTheme = currentTheme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", currentTheme);
+      localStorage.setItem("habits_theme", currentTheme);
+      updateThemeIcon();
+    }
+  });
+  updateThemeIcon();
+});
     });
   }
 
