@@ -688,6 +688,113 @@
   }
   function timerSetTarget(m){ timerState.targetMinutes = m; saveTimer(); }
 
+  /* ---------------- Satzpausen-Timer (Sport) ---------------- */
+
+  var REST_TIMER_KEY = "habits_rest_timer_v1";
+  var restTimerState = (function(){
+    try{
+      var raw = localStorage.getItem(REST_TIMER_KEY);
+      if (raw){
+        var p = JSON.parse(raw);
+        if (p && typeof p.defaultSeconds === "number") return p;
+      }
+    }catch(e){}
+    return { running:false, endMillis:0, remainingSeconds:90, defaultSeconds:90, finished:false };
+  })();
+  var restTickTimer = null;
+
+  function saveRestTimer(){
+    try{ localStorage.setItem(REST_TIMER_KEY, JSON.stringify(restTimerState)); }catch(e){}
+  }
+
+  function getRestRemainingSeconds(){
+    if (!restTimerState.running) return restTimerState.remainingSeconds;
+    var rem = Math.ceil((restTimerState.endMillis - Date.now()) / 1000);
+    return rem > 0 ? rem : 0;
+  }
+
+  function playRestBeep(){
+    try{
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      var ctx = new AudioCtx();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+    }catch(e){}
+  }
+
+  function startRestTimer(seconds){
+    var dur = (typeof seconds === "number" && seconds > 0)
+      ? seconds
+      : (restTimerState.remainingSeconds > 0 ? restTimerState.remainingSeconds : restTimerState.defaultSeconds);
+    restTimerState.remainingSeconds = dur;
+    restTimerState.endMillis = Date.now() + dur * 1000;
+    restTimerState.running = true;
+    restTimerState.finished = false;
+    saveRestTimer();
+    manageRestTicking();
+  }
+
+  function pauseRestTimer(){
+    if (restTimerState.running){
+      restTimerState.remainingSeconds = getRestRemainingSeconds();
+      restTimerState.running = false;
+      saveRestTimer();
+    }
+  }
+
+  function resetRestTimer(newDefault){
+    if (typeof newDefault === "number" && newDefault > 0){
+      restTimerState.defaultSeconds = newDefault;
+    }
+    restTimerState.running = false;
+    restTimerState.finished = false;
+    restTimerState.remainingSeconds = restTimerState.defaultSeconds;
+    saveRestTimer();
+  }
+
+  function adjustRestTimer(delta){
+    var cur = getRestRemainingSeconds();
+    var next = Math.max(5, cur + delta);
+    restTimerState.remainingSeconds = next;
+    if (restTimerState.running){
+      restTimerState.endMillis = Date.now() + next * 1000;
+    }
+    restTimerState.finished = false;
+    saveRestTimer();
+  }
+
+  function manageRestTicking(){
+    if (restTickTimer){ clearInterval(restTickTimer); restTickTimer = null; }
+    if (restTimerState.running){
+      restTickTimer = setInterval(function(){
+        var rem = getRestRemainingSeconds();
+        if (rem <= 0){
+          restTimerState.running = false;
+          restTimerState.remainingSeconds = 0;
+          restTimerState.finished = true;
+          saveRestTimer();
+          clearInterval(restTickTimer);
+          restTickTimer = null;
+          playRestBeep();
+          if (activeTab === "sport") render();
+          return;
+        }
+        var el = document.getElementById("restTimerDisplay");
+        if (el) el.textContent = formatDuration(rem);
+      }, 250);
+    }
+  }
+
   function studyTotalSeconds(){
     return data.studySessions.reduce(function(s,x){ return s + x.durationSeconds; }, 0);
   }
@@ -1046,12 +1153,45 @@
 
   /* ---------------- render: Sport ---------------- */
 
+  function renderRestTimerCard(){
+    var rem = getRestRemainingSeconds();
+    var presets = [60, 90, 120, 180].map(function(sec){
+      var label = sec < 120 ? (sec + "s") : ((sec / 60) + "m");
+      var isActive = restTimerState.defaultSeconds === sec;
+      return '<button class="chip' + (isActive ? " active" : "") + '" data-rest-preset="' + sec + '">' + label + '</button>';
+    }).join("");
+
+    var statusText = restTimerState.finished
+      ? "Pause beendet – nächster Satz!"
+      : (restTimerState.running ? "Satzpause läuft…" : "Satzpause (" + restTimerState.defaultSeconds + " Sek.)");
+
+    return '' +
+      '<section class="session-card" style="padding:12px 14px; margin-bottom:14px;' + (restTimerState.finished ? ' border-color:var(--accent-sport);' : '') + '">' +
+        '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">' +
+          '<div>' +
+            '<div style="font-size:0.78rem; color:var(--ink-soft);">' + statusText + '</div>' +
+            '<div id="restTimerDisplay" style="font-family:var(--font-mono); font-size:1.65rem; font-weight:700; line-height:1.2;">' + formatDuration(rem) + '</div>' +
+          '</div>' +
+          '<div style="display:flex; gap:6px; align-items:center;">' +
+            '<button class="action-btn" data-rest-adjust="-15" style="padding:7px 10px;">-15s</button>' +
+            '<button class="action-btn" data-rest-adjust="15" style="padding:7px 10px;">+15s</button>' +
+            (restTimerState.running
+              ? '<button class="action-btn" data-rest-pause>Pause</button>'
+              : '<button class="action-btn primary" data-rest-start>Start</button>') +
+            '<button class="icon-btn" data-rest-reset title="Zurücksetzen">↺</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="chips-row" style="margin-top:10px !important; margin-bottom:0 !important;">' + presets + '</div>' +
+      '</section>';
+  }
+
   function renderSport(){
     var html = '<section class="chips-row">'+
       '<button class="chip'+(sportSubTab==="tagebuch"?" active":"")+'" data-sport-tab="tagebuch">Tagebuch</button>'+
       '<button class="chip'+(sportSubTab==="plan"?" active":"")+'" data-sport-tab="plan">Trainingsplan</button>'+
       '<button class="chip'+(sportSubTab==="ernaehrung"?" active":"")+'" data-sport-tab="ernaehrung">Ernährung</button>'+
-    '</section>';
+    '</section>'+
+    renderRestTimerCard();
     if (sportSubTab==="tagebuch") html += renderTagebuch();
     else if (sportSubTab==="plan") html += renderTrainingsplanTab();
     else html += renderErnaehrung();
@@ -1538,6 +1678,7 @@
     manageTicking();
     managePauseTicking();
     manageHeuteTicking();
+    manageRestTicking();
   }
 
   function managePauseTicking(){
@@ -1712,6 +1853,17 @@
     // ---- Sport: Tab-Wahl ----
     el = ev.target.closest("[data-sport-tab]");
     if (el){ sportSubTab = el.getAttribute("data-sport-tab"); render(); return; }
+
+    // ---- Sport: Satzpausen-Timer ----
+    el = ev.target.closest("[data-rest-preset]");
+    if (el){ resetRestTimer(parseInt(el.getAttribute("data-rest-preset"), 10)); render(); return; }
+
+    el = ev.target.closest("[data-rest-adjust]");
+    if (el){ adjustRestTimer(parseInt(el.getAttribute("data-rest-adjust"), 10)); render(); return; }
+
+    if (ev.target.closest("[data-rest-start]")){ startRestTimer(); render(); return; }
+    if (ev.target.closest("[data-rest-pause]")){ pauseRestTimer(); render(); return; }
+    if (ev.target.closest("[data-rest-reset]")){ resetRestTimer(); render(); return; }
 
     // ---- Sport: Tagebuch ----
     el = ev.target.closest("[data-session-toggle]");
@@ -2075,7 +2227,7 @@
         var exS = sessS.exercises.find(function(e){ return e.id===partsSet[1]; });
         if (exS){
           exS.sets.push({ id:makeId(), setNumber: exS.sets.length+1, weightKg:w, reps:r, restSeconds: isNaN(restVal) ? null : restVal });
-          save(); render();
+          var autoRest = (typeof restVal === "number" && !isNaN(restVal) && restVal > 0) ? restVal : restTimerState.defaultSeconds; startRestTimer(autoRest); save(); render();
         }
       }
       return;
